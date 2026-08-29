@@ -6,6 +6,10 @@ class UserRoleCreate(BaseModel):
     role_type: str  # farmer | buyer | machine_owner | storage_owner
 
 
+class UserRoleUpdate(BaseModel):
+    active: bool
+
+
 class UserRoleResponse(BaseModel):
     id: int
     user_id: int

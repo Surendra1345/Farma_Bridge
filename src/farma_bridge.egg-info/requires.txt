@@ -1,0 +1,11 @@
+alembic>=1.19.1
+bcrypt<4.1,>=4.0.1
+fastapi>=0.141.1
+multipart>=2.0.0
+passlib>=1.7.4
+psycopg2-binary>=2.9.12
+pydantic>=2.13.4
+python-multipart>=0.0.32
+python-dotenv>=1.0.0
+sqlalchemy>=2.0.52
+uvicorn>=0.52.4

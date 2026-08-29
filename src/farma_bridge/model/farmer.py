@@ -9,7 +9,7 @@ class Farmer(Base):
     One row per crop listing (a farmer can post many listings over time,
     hence NOT a 1:1 profile table — user_id is a plain FK, not unique).
     """
-    __tablename__ = "farmer_listings"
+    __tablename__ = "farmer"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
