@@ -12,7 +12,7 @@ class Buyer(Base):
     (buyers have no extra profile fields beyond the base User record) —
     it's the requirement posting itself.
     """
-    __tablename__ = "buyer_requirements"
+    __tablename__ = "buyer"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
