@@ -11,6 +11,11 @@ load_dotenv()
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
+
+def smtp_enabled() -> bool:
+    """Read this at send time so a changed .env setting takes effect reliably."""
+    return os.getenv("OTP_EMAIL_ENABLED", "false").lower() in {"1", "true", "yes"}
+
 def _send_otp_email_sync(to_email: str, otp: str, user_name: str = "User") -> bool:
     """
     Sends a 6-digit OTP email to the user for FarmaBridge registration or account verification.
@@ -18,6 +23,7 @@ def _send_otp_email_sync(to_email: str, otp: str, user_name: str = "User") -> bo
     load_dotenv(override=True)
     email_address = os.getenv("EMAIL_ADDRESS")
     email_password = os.getenv("EMAIL_PASSWORD")
+    send_via_smtp = smtp_enabled()
 
     if email_password:
         email_password = email_password.replace(" ", "").strip()
@@ -52,7 +58,7 @@ The FarmaBridge Team
 
         msg.attach(MIMEText(body, 'plain'))
 
-        if email_address and email_password:
+        if send_via_smtp and email_address and email_password:
             with smtplib.SMTP('smtp.gmail.com', 587) as server:
                 server.starttls()
                 server.login(email_address, email_password)

@@ -28,3 +28,25 @@ class User(Base):
     buyer_requirements: Mapped[list["Buyer"]] = relationship(back_populates="user")
     storage_listings: Mapped[list["StorageListing"]] = relationship(back_populates="owner")
     machine_listings: Mapped[list["MachineListing"]] = relationship(back_populates="owner")
+    buyer_orders: Mapped[list["Order"]] = relationship(back_populates="buyer", foreign_keys="Order.buyer_id")
+    farmer_orders: Mapped[list["Order"]] = relationship(back_populates="farmer", foreign_keys="Order.farmer_id")
+    bookings_as_requester: Mapped[list["Booking"]] = relationship(
+        back_populates="requester", foreign_keys="Booking.requester_id"
+    )
+    bookings_as_provider: Mapped[list["Booking"]] = relationship(
+        back_populates="provider", foreign_keys="Booking.provider_id"
+    )
+    reviews_given: Mapped[list["Review"]] = relationship(back_populates="reviewer", foreign_keys="Review.reviewer_id")
+    reviews_received: Mapped[list["Review"]] = relationship(
+        back_populates="reviewed_user", foreign_keys="Review.reviewed_user_id"
+    )
+    reports_filed: Mapped[list["UserReport"]] = relationship(
+        back_populates="reporter", foreign_keys="UserReport.reporter_id"
+    )
+    reports_received: Mapped[list["UserReport"]] = relationship(
+        back_populates="reported_user", foreign_keys="UserReport.reported_user_id"
+    )
+    reports_resolved: Mapped[list["UserReport"]] = relationship(
+        back_populates="resolver", foreign_keys="UserReport.resolved_by"
+    )
+    payment_transactions: Mapped[list["PaymentTransaction"]] = relationship(back_populates="user")

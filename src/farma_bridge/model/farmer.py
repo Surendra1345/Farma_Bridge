@@ -43,3 +43,4 @@ class Farmer(Base):
     contact_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # was wrongly String before
 
     user: Mapped["User"] = relationship(back_populates="farmer_listings")
+    orders: Mapped[list["Order"]] = relationship(back_populates="listing")

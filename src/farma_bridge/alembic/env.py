@@ -4,6 +4,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 from model import user, user_roles, farmer, storage_listing, machine_listing, buyer
+from model import order, booking, review, user_report, payment_transaction
 from config.database import DATABASE_URL, Base
 
 # this is the Alembic Config object, which provides

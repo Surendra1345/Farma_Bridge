@@ -1,0 +1,10 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;800&display=swap");
+@import "tailwindcss";
+
+@theme { --font-display: "Playfair Display", serif; --font-sans: "DM Sans", sans-serif; }
+
+* { box-sizing: border-box; }
+html { font-family: "DM Sans", sans-serif; background: #f7f8f3; }
+button { cursor: pointer; }
+.icon-button { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 9999px; color: #31513a; }
+.icon-button:hover { background: #eaf4e5; }
