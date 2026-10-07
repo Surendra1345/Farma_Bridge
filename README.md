@@ -1,40 +1,46 @@
-# Farma Bridge API
+# Farma Bridge
 
-## Run locally
+Farma Bridge is an agricultural marketplace connecting farmers, buyers, storage facilities, and machinery providers.
 
-Use Python 3.11 or newer. With no `DATABASE_URL`, the app uses a local SQLite
-database named `farma_bridge.db` and creates its tables on startup.
+## Project Structure
 
-```bash
-PYTHONPATH=src/farma_bridge python3.11 -m uvicorn main:app --reload
+```text
+Farma_Bridge/
+├── backend/    # FastAPI Python application (database models, API endpoints, Alembic migrations)
+└── frontend/   # React + Vite + TypeScript web interface
 ```
 
-Open `http://127.0.0.1:8000/docs` to use the API documentation.
+## Getting Started
 
-## PostgreSQL
+### 1. Backend
 
-Copy `.env.example` to `.env`, set `DATABASE_URL`, then apply the migrations:
-
-```bash
-cd src/farma_bridge
-alembic upgrade head
-```
-
-For an existing database, take a backup before running migrations.
-
-## Tests
+Navigate to `backend/`:
 
 ```bash
-PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v
+cd backend
 ```
 
-The workflow tests run against temporary SQLite databases and verify that an
-order cannot be confirmed twice, cancelled orders restore stock, and booking
-state changes are valid.
+Follow the instructions in [backend/README.md](backend/README.md) to set up Python, install dependencies, run migrations, and start the API server:
 
-## Schema note
+```bash
+PYTHONPATH=src/farma_bridge python -m uvicorn main:app --reload --port 8000
+```
 
-The code and Alembic migrations use `farmer`, `buyer`, and `user_roles` table
-names. They cannot directly use a database created from the supplied diagram,
-which calls those tables `crop_listings`, `buyer_requirements`, and `roles`.
-Migrate one schema to the other before connecting that database to this API.
+The API will be available at `http://127.0.0.1:8000` (Swagger docs at `/docs`).
+
+### 2. Frontend
+
+Navigate to `frontend/`:
+
+```bash
+cd frontend
+```
+
+Install packages and run the development server:
+
+```bash
+npm install
+npm run dev
+```
+
+The frontend app will run at `http://localhost:5173` and proxy API calls to the backend running at `http://127.0.0.1:8000`.
