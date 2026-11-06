@@ -94,9 +94,13 @@ class FarmerService:
             changes["post_cultivation_photo"] = await self.upload_service.save_image(post_cultivation_photo)
         if pre_cultivation_photo:
             changes["pre_cultivation_photo"] = await self.upload_service.save_image(pre_cultivation_photo)
+        if "quantity" in changes and changes["quantity"] is not None:
+            sold = listing.quantity - listing.quantity_remaining
+            if changes["quantity"] < sold:
+                raise HTTPException(400, f"Quantity can't be below the {sold:g} {listing.unit} already ordered")
+            listing.quantity_remaining = changes["quantity"] - sold
         for field, value in changes.items():
-            if value is not None:
-                setattr(listing, field, value)
+            setattr(listing, field, value)
         return self.repo.save(listing)
 
     def update_availability(self, listing_id: int, user_id: int, status: str) -> Farmer:

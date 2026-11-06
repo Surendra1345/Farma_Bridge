@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from config.database import get_db
+from config.security import CurrentUser
 from service.buyer_service import BuyerService
-from schemes.buyer import BuyerCreate, BuyerResponse
+from schemas.buyer import BuyerCreate, BuyerResponse
 
 router = APIRouter(prefix="/buyer-requirements", tags=["buyer_requirements"])
 
@@ -23,15 +24,15 @@ def get_buyer_requirement(requirement_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=BuyerResponse, status_code=201)
-def create_buyer_requirement(user_id: int, payload: BuyerCreate, db: Session = Depends(get_db)):
-    return BuyerService(db).create(user_id, payload)
+def create_buyer_requirement(payload: BuyerCreate, current: CurrentUser, db: Session = Depends(get_db)):
+    return BuyerService(db).create(current.id, payload)
 
 
 @router.patch("/{requirement_id}", response_model=BuyerResponse)
-def update_buyer_requirement(requirement_id: int, user_id: int, payload: BuyerCreate, db: Session = Depends(get_db)):
-    return BuyerService(db).update(requirement_id, user_id, payload)
+def update_buyer_requirement(requirement_id: int, payload: BuyerCreate, current: CurrentUser, db: Session = Depends(get_db)):
+    return BuyerService(db).update(requirement_id, current.id, payload)
 
 
 @router.delete("/{requirement_id}", status_code=204)
-def delete_buyer_requirement(requirement_id: int, user_id: int, db: Session = Depends(get_db)):
-    BuyerService(db).delete(requirement_id, user_id)
+def delete_buyer_requirement(requirement_id: int, current: CurrentUser, db: Session = Depends(get_db)):
+    BuyerService(db).delete(requirement_id, current.id)

@@ -12,6 +12,9 @@ class User(Base):
     phone_number: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     otp: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    otp_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    otp_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_verified: Mapped[bool] = mapped_column(nullable=False, default=False)  # True once the emailed OTP is confirmed
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str] = mapped_column(String(255), nullable=False)
     location: Mapped[str] = mapped_column(String(100), nullable=False)  # human-readable address text

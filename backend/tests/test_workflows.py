@@ -19,8 +19,8 @@ from model.machine_listing import MachineListing
 from model.storage_listing import StorageListing
 from model.user import User
 from model.user_roles import UserRole
-from schemes.booking import BookingCreate
-from schemes.order import OrderCreate
+from schemas.booking import BookingCreate
+from schemas.order import OrderCreate
 from service.booking_service import BookingService
 from service.order_service import OrderService
 

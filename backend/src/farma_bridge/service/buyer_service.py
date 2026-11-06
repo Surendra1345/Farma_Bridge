@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from repositories.buyer_repo import BuyerRepository
 from service.user_role_service import UserRoleService
 from model.buyer import Buyer
-from schemes.buyer import BuyerCreate
+from schemas.buyer import BuyerCreate
 
 
 class BuyerService:

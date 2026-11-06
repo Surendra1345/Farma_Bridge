@@ -21,8 +21,8 @@ if DATABASE_URL.startswith("sqlite"):
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static")), name="static")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()],
+    allow_credentials=False,  # auth is a Bearer header, not cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )

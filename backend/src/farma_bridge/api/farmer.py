@@ -2,8 +2,9 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from config.database import get_db
+from config.security import CurrentUser
 from service.farmer_service import FarmerService
-from schemes.farmer import FarmerResponse
+from schemas.farmer import FarmerResponse
 
 router = APIRouter(prefix="/crop-listings", tags=["crop_listings"])
 
@@ -29,7 +30,7 @@ def get_crop_listing(listing_id: int, db: Session = Depends(get_db)):
 
 @router.post("", response_model=FarmerResponse, status_code=201)
 async def create_crop_listing(
-    user_id: int = Form(...),
+    current: CurrentUser,
     crop_name: str = Form(...),
     category: str = Form(...),
     quantity: float = Form(...),
@@ -50,7 +51,7 @@ async def create_crop_listing(
     never a moment where an uploaded file exists without a known owner.
     """
     return await FarmerService(db).create_with_photos(
-        user_id=user_id,
+        user_id=current.id,
         crop_name=crop_name,
         category=category,
         quantity=quantity,
@@ -68,23 +69,23 @@ async def create_crop_listing(
 @router.put("/{listing_id}", response_model=FarmerResponse)
 async def update_crop_listing(
     listing_id: int,
-    user_id: int = Form(...),
-    crop_name: str | None = Form(None),
-    category: str | None = Form(None),
-    quantity: float | None = Form(None),
-    unit: str | None = Form(None),
-    price_per_kg: int | None = Form(None),
-    location: str | None = Form(None),
+    current: CurrentUser,
+    crop_name: str = Form(...),
+    category: str = Form(...),
+    quantity: float = Form(...),
+    unit: str = Form(...),
+    price_per_kg: int = Form(...),
+    location: str = Form(...),
     quality_grade: str | None = Form(None),
     latitude: float | None = Form(None),
     longitude: float | None = Form(None),
-    status: str | None = Form(None),
+    status: str = Form(...),
     expires_at: datetime | None = Form(None),
     post_cultivation_photo: UploadFile | None = File(None),
     pre_cultivation_photo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
-    raw_payload = {
+    payload = {
         "crop_name": crop_name,
         "category": category,
         "quantity": quantity,
@@ -97,22 +98,20 @@ async def update_crop_listing(
         "status": status,
         "expires_at": expires_at,
     }
-    payload = {k: v for k, v in raw_payload.items() if v is not None}
     return await FarmerService(db).update_with_photos(
-        listing_id, user_id, payload, post_cultivation_photo, pre_cultivation_photo
+        listing_id, current.id, payload, post_cultivation_photo, pre_cultivation_photo
     )
 
 
 @router.patch("/{listing_id}/availability", response_model=FarmerResponse)
 def update_crop_availability(
     listing_id: int,
-    user_id: int,
-    status: str,
+    current: CurrentUser, status: str,
     db: Session = Depends(get_db),
 ):
-    return FarmerService(db).update_availability(listing_id, user_id, status)
+    return FarmerService(db).update_availability(listing_id, current.id, status)
 
 
 @router.delete("/{listing_id}", status_code=204)
-def delete_crop_listing(listing_id: int, user_id: int, db: Session = Depends(get_db)):
-    FarmerService(db).delete(listing_id, user_id)
+def delete_crop_listing(listing_id: int, current: CurrentUser, db: Session = Depends(get_db)):
+    FarmerService(db).delete(listing_id, current.id)

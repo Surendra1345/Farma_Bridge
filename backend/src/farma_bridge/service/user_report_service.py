@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from model.user_report import UserReport
 from repositories.user_report_repo import UserReportRepository
 from repositories.user_repo import UserRepository
-from schemes.user_report import UserReportCreate, UserReportResolve
+from schemas.user_report import UserReportCreate, UserReportResolve
 
 VALID_REPORT_STATUSES = {"Open", "Under Review", "Resolved", "Dismissed"}
 

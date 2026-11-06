@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from model.payment_transaction import PaymentTransaction
 from repositories.payment_transaction_repo import PaymentTransactionRepository
 from repositories.user_repo import UserRepository
-from schemes.payment_transaction import PaymentTransactionCreate, PaymentStatusUpdate
+from schemas.payment_transaction import PaymentTransactionCreate, PaymentStatusUpdate
 
 VALID_PAYMENT_STATUSES = {"Pending", "Success", "Failed", "Refunded"}
 

@@ -5,7 +5,7 @@ from repositories.machine_listing_repo import MachineListingRepository
 from service.user_role_service import UserRoleService
 from service.upload import UploadService
 from model.machine_listing import MachineListing
-from schemes.machine_listing import MachineListingCreate
+from schemas.machine_listing import MachineListingCreate
 
 VALID_STATUSES = {"Available", "Booked"}
 
@@ -80,9 +80,11 @@ class MachineListingService:
         machine_photo: UploadFile | None = None,
     ) -> MachineListing:
         listing = self._get_owned(listing_id, owner_id)
-        for field, value in payload.model_dump(exclude_unset=True).items():
-            if value is not None:
-                setattr(listing, field, value)
+        changes = payload.model_dump(exclude_unset=True, exclude={"verified_badge"})
+        if changes.get("status") is not None and changes["status"] not in VALID_STATUSES:
+            raise HTTPException(400, "status must be 'Available' or 'Booked'")
+        for field, value in changes.items():
+            setattr(listing, field, value)
         if machine_photo:
             listing.machine_photos = await self.upload_service.save_image(machine_photo)
         return self.repo.save(listing)

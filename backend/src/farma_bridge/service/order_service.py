@@ -6,7 +6,7 @@ from model.order import Order
 from repositories.farmer_repo import FarmerRepository
 from repositories.order_repo import OrderRepository
 from repositories.user_repo import UserRepository
-from schemes.order import OrderCreate
+from schemas.order import OrderCreate
 from service.user_role_service import UserRoleService
 
 VALID_ORDER_STATUSES = {"Pending", "Confirmed", "Completed", "Cancelled"}

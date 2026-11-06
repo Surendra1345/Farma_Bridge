@@ -5,7 +5,7 @@ from repositories.storage_listing_repo import StorageListingRepository
 from service.user_role_service import UserRoleService
 from service.upload import UploadService
 from model.storage_listing import StorageListing
-from schemes.storage_listing import StorageListingCreate
+from schemas.storage_listing import StorageListingCreate
 
 VALID_AVAILABILITY = {"Plenty of Space", "Limited Space", "Full"}
 
@@ -81,9 +81,9 @@ class StorageListingService:
         storage_photo: UploadFile | None = None,
     ) -> StorageListing:
         listing = self._get_owned(listing_id, owner_id)
-        for field, value in payload.model_dump(exclude_unset=True).items():
-            if value is not None:
-                setattr(listing, field, value)
+        # verified_badge is granted by moderators, never self-assigned by the owner.
+        for field, value in payload.model_dump(exclude_unset=True, exclude={"verified_badge"}).items():
+            setattr(listing, field, value)
         if storage_photo:
             listing.storage_photo = await self.upload_service.save_image(storage_photo)
         return self.repo.save(listing)
