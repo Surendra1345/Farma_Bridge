@@ -6,12 +6,22 @@ class ReviewRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def browse(self, reviewed_user_id: int | None = None, reviewer_id: int | None = None) -> list[Review]:
+    def browse(
+        self,
+        reviewed_user_id: int | None = None,
+        reviewer_id: int | None = None,
+        context_type: str | None = None,
+        context_id: int | None = None,
+    ) -> list[Review]:
         q = self.db.query(Review)
         if reviewed_user_id is not None:
             q = q.filter(Review.reviewed_user_id == reviewed_user_id)
         if reviewer_id is not None:
             q = q.filter(Review.reviewer_id == reviewer_id)
+        if context_type is not None:
+            q = q.filter(Review.context_type == context_type)
+        if context_id is not None:
+            q = q.filter(Review.context_id == context_id)
         return q.order_by(Review.created_at.desc()).all()
 
     def get_by_id(self, review_id: int) -> Review | None:

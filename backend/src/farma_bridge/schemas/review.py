@@ -19,6 +19,9 @@ class ReviewResponse(BaseModel):
     context_type: str | None = None
     context_id: int | None = None
     created_at: datetime
+    reviewer_name: str | None = None
+    reviewed_user_name: str | None = None
+    product_title: str | None = None
 
     class Config:
         from_attributes = True

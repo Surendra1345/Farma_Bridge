@@ -26,7 +26,7 @@ class UserRoleService:
         existing = self.repo.get_any(user_id, role_type)
         if existing:
             if existing.deactivated_at is None:
-                raise HTTPException(400, "User already has this role active")
+                return existing
             existing.deactivated_at = None
             existing.activated_at = datetime.utcnow()
             return self.repo.save(existing)

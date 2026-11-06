@@ -14,7 +14,19 @@ class MachineListingCreate(BaseModel):
     location: str
     latitude: float | None = None
     longitude: float | None = None
-    # NOTE: no `contact` field — resolved via call masking from owner.phone_number
+class MachineListingUpdate(BaseModel):
+    machine_photos: str | None = None
+    machine_type: str | None = None
+    pricing_unit: str | None = None
+    price_per_unit: int | None = None
+    years_experience: int | None = None
+    operator_included: bool | None = None
+    machine_condition: str | None = None
+    status: str | None = None
+    expected_duration: str | None = None
+    location: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class MachineListingResponse(BaseModel):

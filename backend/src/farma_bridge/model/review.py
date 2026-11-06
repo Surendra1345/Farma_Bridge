@@ -18,3 +18,11 @@ class Review(Base):
 
     reviewer: Mapped["User"] = relationship(back_populates="reviews_given", foreign_keys=[reviewer_id])
     reviewed_user: Mapped["User"] = relationship(back_populates="reviews_received", foreign_keys=[reviewed_user_id])
+
+    @property
+    def reviewer_name(self) -> str | None:
+        return self.reviewer.name if self.reviewer else None
+
+    @property
+    def reviewed_user_name(self) -> str | None:
+        return self.reviewed_user.name if self.reviewed_user else None

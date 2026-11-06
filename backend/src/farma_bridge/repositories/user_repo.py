@@ -10,6 +10,9 @@ class UserRepository:
     def get_by_email(self, email: str) -> User | None:
         return self.db.query(User).filter(User.email == email).first()
 
+    def get_by_phone(self, phone: str) -> User | None:
+        return self.db.query(User).filter(User.phone_number == phone).first()
+
     def get_by_phone_or_email(self, phone_number: str, email: str) -> User | None:
         return (
             self.db.query(User)

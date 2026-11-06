@@ -14,8 +14,15 @@ def browse_reviews(
     db: Session = Depends(get_db),
     reviewed_user_id: int | None = Query(None),
     reviewer_id: int | None = Query(None),
+    context_type: str | None = Query(None),
+    context_id: int | None = Query(None),
 ):
-    return ReviewService(db).browse(reviewed_user_id=reviewed_user_id, reviewer_id=reviewer_id)
+    return ReviewService(db).browse(
+        reviewed_user_id=reviewed_user_id,
+        reviewer_id=reviewer_id,
+        context_type=context_type,
+        context_id=context_id,
+    )
 
 
 @router.get("/{review_id}", response_model=ReviewResponse)

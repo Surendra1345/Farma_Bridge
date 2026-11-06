@@ -31,7 +31,8 @@ class BuyerService:
     def update(self, requirement_id: int, user_id: int, payload: BuyerCreate) -> Buyer:
         req = self._get_owned(requirement_id, user_id)
         for field, value in payload.model_dump(exclude_unset=True).items():
-            setattr(req, field, value)
+            if value is not None:
+                setattr(req, field, value)
         return self.repo.save(req)
 
     def delete(self, requirement_id: int, user_id: int) -> None:

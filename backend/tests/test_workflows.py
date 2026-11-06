@@ -7,6 +7,11 @@ from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src", "farma_bridge")))
+
 import model  # noqa: F401 -- imports every mapper before create_all
 from config.database import Base
 from model.farmer import Farmer
