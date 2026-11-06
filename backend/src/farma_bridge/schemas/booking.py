@@ -7,7 +7,7 @@ class BookingCreate(BaseModel):
     reference_id: int
     start_date: datetime
     end_date: datetime
-    total_price: float = Field(gt=0)
+    total_price: float = Field(default=1, gt=0)  # ignored for hourly/daily/weekly/monthly units
 
 
 class BookingStatusUpdate(BaseModel):

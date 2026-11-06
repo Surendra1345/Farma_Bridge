@@ -81,7 +81,8 @@ class StorageListingService:
         storage_photo: UploadFile | None = None,
     ) -> StorageListing:
         listing = self._get_owned(listing_id, owner_id)
-        for field, value in payload.model_dump(exclude_unset=True).items():
+        # verified_badge is granted by moderators, never self-assigned by the owner.
+        for field, value in payload.model_dump(exclude_unset=True, exclude={"verified_badge"}).items():
             setattr(listing, field, value)
         if storage_photo:
             listing.storage_photo = await self.upload_service.save_image(storage_photo)

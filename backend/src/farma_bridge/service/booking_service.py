@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -51,7 +52,7 @@ class BookingService:
             provider_id=provider_id,
             start_date=payload.start_date,
             end_date=payload.end_date,
-            total_price=payload.total_price,
+            total_price=self._price(payload),
             status="Pending",
             created_at=datetime.utcnow(),
         )
@@ -88,6 +89,27 @@ class BookingService:
         booking.status = status
         booking.updated_at = datetime.utcnow()
         return self.repo.save(booking)
+
+    def _price(self, payload: BookingCreate) -> float:
+        """Compute the price from the listing so clients can't set their own.
+
+        Time-based units (hour/day/week/month) are derived from the dates.
+        Other units (e.g. "Per Acre") can't be derived from dates, so the
+        client-supplied total is kept for those.
+        """
+        if payload.booking_type == "machine":
+            listing = self.machine_repo.get_by_id(payload.reference_id)
+            unit_price = listing.price_per_unit
+        else:
+            listing = self.storage_repo.get_by_id(payload.reference_id)
+            unit_price = listing.price
+        unit = listing.pricing_unit.lower()
+        seconds = (payload.end_date - payload.start_date).total_seconds()
+        days = seconds / 86400
+        for key, units in (("hour", seconds / 3600), ("day", days), ("week", days / 7), ("month", days / 30)):
+            if key in unit:
+                return float(unit_price * max(1, math.ceil(units)))
+        return payload.total_price
 
     def _resolve_provider(self, booking_type: str, reference_id: int, requester_id: int) -> int:
         if booking_type == "machine":

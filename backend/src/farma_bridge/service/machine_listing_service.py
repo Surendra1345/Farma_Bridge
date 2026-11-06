@@ -80,7 +80,10 @@ class MachineListingService:
         machine_photo: UploadFile | None = None,
     ) -> MachineListing:
         listing = self._get_owned(listing_id, owner_id)
-        for field, value in payload.model_dump(exclude_unset=True).items():
+        changes = payload.model_dump(exclude_unset=True, exclude={"verified_badge"})
+        if changes.get("status") is not None and changes["status"] not in VALID_STATUSES:
+            raise HTTPException(400, "status must be 'Available' or 'Booked'")
+        for field, value in changes.items():
             setattr(listing, field, value)
         if machine_photo:
             listing.machine_photos = await self.upload_service.save_image(machine_photo)

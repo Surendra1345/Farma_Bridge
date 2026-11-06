@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from config.database import get_db
+from config.security import CurrentUser
 from schemas.review import ReviewCreate, ReviewResponse
 from service.review_service import ReviewService
 
@@ -23,5 +24,5 @@ def get_review(review_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=ReviewResponse, status_code=201)
-def create_review(reviewer_id: int, payload: ReviewCreate, db: Session = Depends(get_db)):
-    return ReviewService(db).create(reviewer_id, payload)
+def create_review(payload: ReviewCreate, current: CurrentUser, db: Session = Depends(get_db)):
+    return ReviewService(db).create(current.id, payload)

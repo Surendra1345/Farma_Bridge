@@ -1,0 +1,58 @@
+# Farma Bridge: PostgreSQL + FastAPI backend + React frontend (nginx).
+#
+#   cp .env.example .env      # then set JWT_SECRET and POSTGRES_PASSWORD
+#   docker compose up --build -d
+#
+# Web app: http://localhost:8080   API docs: http://localhost:8200/docs
+
+name: farma-bridge
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-farma_bridge}
+      POSTGRES_USER: ${POSTGRES_USER:-farma}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"   # for local tools (psql, pgAdmin); the app connects inside Docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-farma}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-farma_bridge}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      OTP_EMAIL_ENABLED: ${OTP_EMAIL_ENABLED:-false}   # false: sign-in codes appear in `docker compose logs backend`
+      EMAIL_ADDRESS: ${EMAIL_ADDRESS:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+    volumes:
+      - uploads:/app/static/uploads
+    ports:
+      - "${BACKEND_PORT:-8200}:8000"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+
+volumes:
+  pgdata:
+  uploads:

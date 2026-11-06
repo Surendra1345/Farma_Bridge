@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from config.database import get_db
+from config.security import CurrentUser
 from service.machine_listing_service import MachineListingService
 from schemas.machine_listing import MachineListingCreate, MachineListingResponse
 
@@ -24,7 +25,7 @@ def get_machine_listing(listing_id: int, db: Session = Depends(get_db)):
 
 @router.post("", response_model=MachineListingResponse, status_code=201)
 async def create_machine_listing(
-    owner_id: int = Form(...),
+    current: CurrentUser,
     machine_type: str = Form(...),
     pricing_unit: str = Form(...),
     price_per_unit: int = Form(...),
@@ -40,7 +41,7 @@ async def create_machine_listing(
 ):
     """One request: photo + listing fields together — no separate /uploads/image call needed."""
     return await MachineListingService(db).create_with_photo(
-        owner_id=owner_id,
+        owner_id=current.id,
         machine_type=machine_type,
         pricing_unit=pricing_unit,
         price_per_unit=price_per_unit,
@@ -58,7 +59,7 @@ async def create_machine_listing(
 @router.put("/{listing_id}", response_model=MachineListingResponse)
 async def update_machine_listing(
     listing_id: int,
-    owner_id: int = Form(...),
+    current: CurrentUser,
     machine_type: str = Form(...),
     pricing_unit: str = Form(...),
     price_per_unit: int = Form(...),
@@ -80,15 +81,15 @@ async def update_machine_listing(
         location=location, latitude=latitude, longitude=longitude, status=status,
     )
     return await MachineListingService(db).update_with_photo(
-        listing_id, owner_id, payload, machine_photo
+        listing_id, current.id, payload, machine_photo
     )
 
 
 @router.patch("/{listing_id}/status", response_model=MachineListingResponse)
-def update_status(listing_id: int, owner_id: int, status: str, db: Session = Depends(get_db)):
-    return MachineListingService(db).update_status(listing_id, owner_id, status)
+def update_status(listing_id: int, current: CurrentUser, status: str, db: Session = Depends(get_db)):
+    return MachineListingService(db).update_status(listing_id, current.id, status)
 
 
 @router.delete("/{listing_id}", status_code=204)
-def delete_machine_listing(listing_id: int, owner_id: int, db: Session = Depends(get_db)):
-    MachineListingService(db).delete(listing_id, owner_id)
+def delete_machine_listing(listing_id: int, current: CurrentUser, db: Session = Depends(get_db)):
+    MachineListingService(db).delete(listing_id, current.id)
