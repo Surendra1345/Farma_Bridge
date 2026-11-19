@@ -45,7 +45,8 @@ export function AccountSheet({ tab: initialTab = "profile", onClose, onPost }: {
 }
 
 function ProfileForm({ onSignOut }: { onSignOut: () => void }) {
-  const { user, updateUser, ensureRole } = useAuth();
+  const { user, updateUser, ensureRole, removeRole } = useAuth();
+  const [confirmOff, setConfirmOff] = useState<Role | null>(null);
   const { busy, error, run } = useAction();
   const [saved, setSaved] = useState(false);
   const [roleError, setRoleError] = useState("");
@@ -59,6 +60,8 @@ function ProfileForm({ onSignOut }: { onSignOut: () => void }) {
   }); };
 
   const addRole = async (role: Role) => { setRoleError(""); try { await ensureRole(role); } catch (e) { setRoleError(e instanceof Error ? e.message : "Couldn't add that."); } };
+
+  const turnOff = async (role: Role) => { setRoleError(""); try { await removeRole(role); } catch (e) { setRoleError(e instanceof Error ? e.message : "Couldn't turn that off."); } finally { setConfirmOff(null); } };
 
   return (
     <div className="space-y-6">
@@ -83,7 +86,9 @@ function ProfileForm({ onSignOut }: { onSignOut: () => void }) {
             return (
               <div key={role} className={`flex items-center justify-between gap-2 rounded-xl border p-3 ${has ? "border-[#1d5a2b] bg-[#eaf4e5]" : "border-[#d8dfce]"}`}>
                 <div><p className="text-sm font-bold">{label}</p><p className="text-xs text-slate-500">{hint}</p></div>
-                {has ? <span className="text-xs font-bold text-[#1d5a2b]">Active</span>
+                {has ? (confirmOff === role
+                  ? <span className="flex items-center gap-1.5 text-xs"><button className="rounded-lg bg-red-600 px-2.5 py-1.5 font-bold text-white" onClick={() => turnOff(role)}>Turn off</button><button className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 font-semibold" onClick={() => setConfirmOff(null)}>Keep</button></span>
+                  : <span className="flex items-center gap-2"><span className="text-xs font-bold text-[#1d5a2b]">Active</span><button className="text-xs font-semibold text-slate-500 underline hover:text-red-700" onClick={() => { setRoleError(""); setConfirmOff(role); }}>Turn off</button></span>)
                   : <button className="rounded-lg border border-[#1d5a2b] px-3 py-1.5 text-xs font-bold text-[#1d5a2b] hover:bg-white" onClick={() => addRole(role)}>Add</button>}
               </div>
             );

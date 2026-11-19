@@ -63,6 +63,7 @@ export const authApi = {
   register: (input: RegisterInput) => send<User>("POST", "/users/register", input),
   me: () => get<User>("/users/me"),
   addRole: (role_type: Role) => send<unknown>("POST", "/users/me/roles", { role_type }),
+  removeRole: (role_type: Role) => request<void>(`/users/me/roles/${role_type}`, { method: "DELETE" }),
   deleteAccount: () => request<void>("/users/me", { method: "DELETE" }),
   updateProfile: (changes: Partial<Pick<User, "name" | "phone_number" | "address" | "location">>) => send<User>("PATCH", "/users/me", changes),
 };

@@ -27,7 +27,9 @@ by phone or chat first, then the owner accepts or declines - whether to talk is 
 Numbers are only shown to the two people in the deal and are hidden again if it is cancelled.
 
 A person can hold several roles at once. Roles are chosen at sign-up and can be
-added later.
+added later. In **Account > Profile** each active role has a **Turn off** link (and **Add** brings it back).
+A role can't be switched off while it is in use: open orders/bookings, crop listings not marked `Sold`,
+machinery not marked `Booked`, or storage not marked `Full` must be dealt with first, and the app tells you which.
 
 ## Repository layout
 
@@ -150,7 +152,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (55 tests, see `backend/tests/`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (59 tests, see `backend/tests/`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |
