@@ -73,7 +73,7 @@ The FarmaBridge Team
         print(f"Failed to send OTP email to {to_email}: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to send OTP email: {str(e)}"
+            detail="Could not send the verification email. Please try again later."
         )
 
 

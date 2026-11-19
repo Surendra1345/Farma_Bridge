@@ -6,6 +6,7 @@ from repositories.farmer_repo import FarmerRepository
 from service.user_role_service import UserRoleService
 from service.upload import UploadService
 from model.farmer import Farmer
+from model.order import Order
 VALID_STATUSES = {"Available", "Partially Sold", "Sold"}
 
 
@@ -112,6 +113,11 @@ class FarmerService:
 
     def delete(self, listing_id: int, user_id: int) -> None:
         listing = self._get_owned(listing_id, user_id)
+        open_orders = self.repo.db.query(Order).filter(
+            Order.listing_id == listing_id, Order.status.in_(("Pending", "Confirmed"))
+        ).count()
+        if open_orders:
+            raise HTTPException(400, "This listing has open orders. Complete or cancel them before deleting it")
         self.repo.delete(listing)
 
     def _get_owned(self, listing_id: int, user_id: int) -> Farmer:

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from config.database import get_db
-from config.security import CurrentUser
+from config.security import CurrentUser, admin_emails
 from schemas.payment_transaction import (
     PaymentStatusUpdate,
     PaymentTransactionCreate,
@@ -21,7 +21,7 @@ def my_payments(current: CurrentUser, db: Session = Depends(get_db), payment_sta
 @router.get("/{transaction_id}", response_model=PaymentTransactionResponse)
 def get_payment(transaction_id: int, current: CurrentUser, db: Session = Depends(get_db)):
     txn = PaymentTransactionService(db).get(transaction_id)
-    if txn.user_id != current.id:
+    if txn.user_id != current.id and current.email.lower() not in admin_emails():
         raise HTTPException(403, "This payment belongs to another user")
     return txn
 
@@ -33,4 +33,6 @@ def create_payment(payload: PaymentTransactionCreate, current: CurrentUser, db: 
 
 @router.patch("/{transaction_id}/status", response_model=PaymentTransactionResponse)
 def update_payment_status(transaction_id: int, payload: PaymentStatusUpdate, current: CurrentUser, db: Session = Depends(get_db)):
-    return PaymentTransactionService(db).update_status(transaction_id, current.id, payload)
+    return PaymentTransactionService(db).update_status(
+        transaction_id, current.id, payload, is_admin=current.email.lower() in admin_emails()
+    )

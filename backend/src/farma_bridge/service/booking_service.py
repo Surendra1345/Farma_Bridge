@@ -1,5 +1,5 @@
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -43,7 +43,12 @@ class BookingService:
         if payload.end_date <= payload.start_date:
             raise HTTPException(400, "end_date must be after start_date")
 
+        if payload.start_date < datetime.utcnow() - timedelta(minutes=5):
+            raise HTTPException(400, "start_date cannot be in the past")
+
         provider_id = self._resolve_provider(payload.booking_type, payload.reference_id, requester_id)
+
+        self._ensure_free(payload.booking_type, payload.reference_id, payload.start_date, payload.end_date)
 
         booking = Booking(
             booking_type=payload.booking_type,
@@ -74,6 +79,10 @@ class BookingService:
                 f"Cannot change a booking from '{booking.status}' to '{status}'",
             )
 
+        if status == "Confirmed":
+            # Re-check at confirmation: another request may have been confirmed meanwhile.
+            self._ensure_free(booking.booking_type, booking.reference_id, booking.start_date, booking.end_date, exclude_id=booking.booking_id)
+
         if status == "Confirmed" and booking.booking_type == "machine":
             listing = self.machine_repo.get_by_id(booking.reference_id)
             if listing:
@@ -89,6 +98,20 @@ class BookingService:
         booking.status = status
         booking.updated_at = datetime.utcnow()
         return self.repo.save(booking)
+
+    def _ensure_free(self, booking_type: str, reference_id: int, start, end, exclude_id: int | None = None) -> None:
+        """Reject a booking whose dates overlap an already Confirmed booking of the same listing."""
+        q = self.db.query(Booking).filter(
+            Booking.booking_type == booking_type,
+            Booking.reference_id == reference_id,
+            Booking.status == "Confirmed",
+            Booking.start_date < end,
+            Booking.end_date > start,
+        )
+        if exclude_id is not None:
+            q = q.filter(Booking.booking_id != exclude_id)
+        if q.first():
+            raise HTTPException(400, "These dates overlap an existing confirmed booking")
 
     def _price(self, payload: BookingCreate) -> float:
         """Compute the price from the listing so clients can't set their own.

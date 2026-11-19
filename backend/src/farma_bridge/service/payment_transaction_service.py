@@ -45,14 +45,18 @@ class PaymentTransactionService:
         return self.repo.create(transaction)
 
     def update_status(
-        self, transaction_id: int, user_id: int, payload: PaymentStatusUpdate
+        self, transaction_id: int, user_id: int, payload: PaymentStatusUpdate, is_admin: bool = False
     ) -> PaymentTransaction:
         if payload.payment_status not in VALID_PAYMENT_STATUSES:
             raise HTTPException(400, f"payment_status must be one of {sorted(VALID_PAYMENT_STATUSES)}")
 
         transaction = self.get(transaction_id)
-        if transaction.user_id != user_id:
-            raise HTTPException(403, "You can only update your own payment transactions")
+        if not is_admin:
+            if transaction.user_id != user_id:
+                raise HTTPException(403, "You can only update your own payment transactions")
+            # Success/Refunded must come from the payment gateway (admin/webhook), never from the payer.
+            if payload.payment_status != "Failed" or transaction.payment_status != "Pending":
+                raise HTTPException(403, "You can only cancel your own pending payment; other changes are made by an administrator")
 
         transaction.payment_status = payload.payment_status
         if payload.payment_gateway_ref:

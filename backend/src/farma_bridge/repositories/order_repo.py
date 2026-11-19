@@ -27,6 +27,9 @@ class OrderRepository:
     def get_by_id(self, order_id: int) -> Order | None:
         return self.db.query(Order).filter(Order.order_id == order_id).first()
 
+    def get_by_id_for_update(self, order_id: int) -> Order | None:
+        return self.db.query(Order).filter(Order.order_id == order_id).with_for_update().first()
+
     def create(self, order: Order) -> Order:
         self.db.add(order)
         self.db.commit()
