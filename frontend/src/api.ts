@@ -91,6 +91,11 @@ export const tradeApi = {
     request<void>(`/${kind}-listings/${id}`, { method: "DELETE" }),
 };
 
+export const assistantApi = {
+  status: () => get<{ enabled: boolean; max_message_chars: number }>("/assistant/status"),
+  chat: (messages: { role: "user" | "assistant"; content: string }[]) => send<{ reply: string; on_topic: boolean }>("POST", "/assistant/chat", { messages }),
+};
+
 export const doctorApi = {
   status: () => get<DoctorStatus>("/crop-doctor/status"),
   diagnose: (photos: File[], fields: { crop_name?: string; notes?: string; language: string }) => {

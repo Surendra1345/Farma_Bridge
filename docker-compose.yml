@@ -42,6 +42,9 @@ services:
       CROP_DOCTOR_MODEL: ${CROP_DOCTOR_MODEL:-qwen/qwen3.8-27b}
       CROP_DOCTOR_MAX_IMAGES: ${CROP_DOCTOR_MAX_IMAGES:-3}
       CROP_DOCTOR_PER_HOUR: ${CROP_DOCTOR_PER_HOUR:-10}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-openai/gpt-oss-120b}
+      ASSISTANT_GUARD_MODEL: ${ASSISTANT_GUARD_MODEL:-openai/gpt-oss-20b}
+      ASSISTANT_PER_10MIN: ${ASSISTANT_PER_10MIN:-30}
       OTP_EMAIL_ENABLED: ${OTP_EMAIL_ENABLED:-false}   # false: sign-in codes appear in `docker compose logs backend`
       EMAIL_ADDRESS: ${EMAIL_ADDRESS:-}
       EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}

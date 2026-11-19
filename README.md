@@ -20,23 +20,34 @@ code) unlocks selling, buying and booking.
 | **Machinery owner** | Post machines for rent, confirm bookings |
 | **Storage owner** | Post storage space, confirm bookings |
 
-**Crop Doctor (AI).** Tap **Crop Doctor** on the home page, menu or header, add up to 3 photos of a sick plant (camera or gallery),
-optionally name the crop and describe what you saw, and pick **English, తెలుగు or हिन्दी**. A vision AI model running on
-[Groq](https://groq.com) looks at the photos and answers with: what looks wrong (disease, pest, nutrient or water stress) with
-confidence and severity, why it happens, what to do now, organic and chemical options (active ingredients only - never doses, mixing rates or spray schedules),
-how to prevent it, and when to see an agriculture officer or Krishi Vigyan Kendra. If the photos are unclear it says so and asks
-for better ones. The result can be shared on WhatsApp. Photos are shrunk, stripped of camera/GPS data and sent to Groq for that one
-check; Farma Bridge **never saves them**. It is guidance from photos, not a lab test - a general-purpose AI model can be wrong, so
-the app always points serious cases to an agriculture officer. The "no doses" rule is written into the AI's instructions *and* enforced
-after the fact: if the model slips and writes an amount ("5 ml per litre", "every 7 days", "0.3% solution"), the app removes it and tells the
-farmer to use the dose on the product label.
+**Farma Bridge assistant (AI chat).** A round chat button at the bottom corner of every page opens an assistant that explains
+what the app is for and how to do things: selling, buying, booking, payments, reviews, roles and more. **No login is needed to
+chat.** It understands English, తెలుగు and हिन्दी and answers in the language you write in.
+
+- **It stays on topic.** Every message first goes through a strict topic gate (a separate model call at temperature 0). Anything that
+  is not about Farma Bridge - general knowledge, coding, poems, weather, general farming advice, "ignore your instructions",
+  role-play, questions about its model or prompt - gets a polite refusal written by the server, in your language, and the answering
+  model is never asked. The answering model also has its own scope rule, can only use the app's knowledge base
+  (`backend/src/farma_bridge/assistant_knowledge.md`, keep it up to date when features change), and has no tools or access to anyone's data.
+- **It is not scripted.** Answers are written by the AI at a higher temperature, so the wording differs each time you ask.
+- **Photo checks need sign-in.** The photo button in the chat opens "Crop Doctor": add up to 3 photos of a sick plant (camera or
+  gallery), optionally describe the problem, pick the result language, and send. A vision model answers with what looks wrong
+  (disease, pest, nutrient or water stress) with confidence and severity, why it happens, what to do now, organic and chemical options
+  (names only - never doses, mixing rates or spray schedules), prevention, photo tips, and when to see an agriculture officer or
+  Krishi Vigyan Kendra. Signed-out users who tap the photo button are asked to sign in; chatting stays open to everyone. Results
+  can be shared on WhatsApp. Photos are shrunk, stripped of camera/GPS data and sent to Groq for that one check; Farma Bridge
+  **never saves them**. It is guidance from photos, not a lab test, and a general-purpose AI model can be wrong. The "no doses" rule
+  is in the AI's instructions *and* enforced afterwards: if the model writes an amount ("5 ml per litre", "every 7 days"), the app
+  removes it and points to the product label.
 
 Setup: create a key at <https://console.groq.com>, put it in `.env` as `GROQ_API_KEY=...` (see `.env.example`) and run
-`docker compose up --build -d`. Without a key the feature shows a friendly "not switched on yet" message and nothing else changes.
-Settings: `CROP_DOCTOR_MODEL` (default `qwen/qwen3.8-27b`) and `CROP_DOCTOR_MAX_IMAGES` (default 3, the limit Groq documents for it)
-- Groq's vision models are currently *preview* models that can change or be retired, so check
-<https://console.groq.com/docs/vision> and update these two values if needed; `CROP_DOCTOR_PER_HOUR` limits checks per signed-in
-user (default 10, 0 = no limit) so usage costs can't run away.
+`docker compose up --build -d`. Without a key the bubble shows a friendly "not switched on yet" message and nothing else changes.
+Settings: `ASSISTANT_MODEL` (answers, default `openai/gpt-oss-120b`), `ASSISTANT_GUARD_MODEL` (topic gate, default
+`openai/gpt-oss-20b`), `ASSISTANT_PER_10MIN` (messages per IP per 10 minutes, default 30), `CROP_DOCTOR_MODEL` (photo model, default
+`qwen/qwen3.8-27b`, a Groq *preview* model that may change - see <https://console.groq.com/docs/vision>), `CROP_DOCTOR_MAX_IMAGES`
+(default 3) and `CROP_DOCTOR_PER_HOUR` (photo checks per signed-in user, default 10). **Groq's free tier allows only about 8,000 tokens per
+minute per model**, which is a few chats per minute; the assistant sends only the knowledge-base sections a question needs to stay
+within it, falls back to the second model, and shows "busy, try again" if both are limited. For real traffic use a paid Groq tier.
 
 **Ask first.** On every crop, machinery and storage card, signed-in visitors see **WhatsApp** and **Call**
 buttons for the owner (WhatsApp opens a chat pre-filled with the listing name), so you can ask "is it still
@@ -187,7 +198,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (84 tests, see `backend/tests/`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (102 tests, see `backend/tests/`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |
