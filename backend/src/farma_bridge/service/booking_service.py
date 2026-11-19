@@ -50,6 +50,18 @@ class BookingService:
 
         self._ensure_free(payload.booking_type, payload.reference_id, payload.start_date, payload.end_date)
 
+        # The same person can't hold two overlapping requests for the same listing.
+        duplicate = self.db.query(Booking).filter(
+            Booking.requester_id == requester_id,
+            Booking.booking_type == payload.booking_type,
+            Booking.reference_id == payload.reference_id,
+            Booking.status.in_(("Pending", "Confirmed")),
+            Booking.start_date < payload.end_date,
+            Booking.end_date > payload.start_date,
+        ).first()
+        if duplicate:
+            raise HTTPException(400, "You already have a booking for this listing that overlaps these dates. Cancel it first or pick different dates")
+
         booking = Booking(
             booking_type=payload.booking_type,
             reference_id=payload.reference_id,
@@ -132,7 +144,10 @@ class BookingService:
         for key, units in (("hour", seconds / 3600), ("day", days), ("week", days / 7), ("month", days / 30)):
             if key in unit:
                 return float(unit_price * max(1, math.ceil(units)))
-        return payload.total_price
+        # Non-time units (e.g. "Per Acre"): price = rate x the quantity the requester asked for.
+        if not payload.quantity:
+            raise HTTPException(400, f"Enter the quantity ({listing.pricing_unit.lower().replace('per ', '')}s) to book")
+        return float(unit_price * payload.quantity)
 
     def _resolve_provider(self, booking_type: str, reference_id: int, requester_id: int) -> int:
         if booking_type == "machine":

@@ -48,12 +48,17 @@ export function BookSheet({ target, onClose, onViewOrders }: { target: Bookable;
   const qc = useQueryClient();
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [qty, setQty] = useState("");
   const { busy, error, done, run } = useAction();
   const title = target.kind === "machine" ? target.listing.machine_type : target.listing.storage_type;
   const refId = target.listing.listing_id;
+  // Per-acre (or any non time-based) rates can't be derived from the dates, so ask for the quantity.
+  const unitName = target.listing.pricing_unit.toLowerCase();
+  const needsQty = !/hour|day|week|month/.test(unitName);
+  const rate = target.kind === "machine" ? target.listing.price_per_unit : target.listing.price;
   const submit = (e: FormEvent) => { e.preventDefault(); run(async () => {
     await ensureRole("buyer");
-    await tradeApi.book(target.kind, refId, new Date(start).toISOString().slice(0, 19), new Date(end).toISOString().slice(0, 19));
+    await tradeApi.book(target.kind, refId, new Date(start).toISOString().slice(0, 19), new Date(end).toISOString().slice(0, 19), needsQty ? Number(qty) : undefined);
     qc.invalidateQueries({ queryKey: [target.kind === "machine" ? "machines" : "storage"] });
     qc.invalidateQueries({ queryKey: ["bookings"] });
     return "Booking requested! The owner will confirm it.";
@@ -64,9 +69,15 @@ export function BookSheet({ target, onClose, onViewOrders }: { target: Bookable;
       {done ? <Done message={done} onClose={onClose} secondary={{ label: "See my bookings", onClick: onViewOrders }} /> : (
         <form onSubmit={submit} className="space-y-4">
           <h2 className="pr-8 text-2xl font-bold">Book {title}</h2>
-          <p className="text-sm text-slate-600">{price} · {target.listing.location}. The final price is calculated from your dates.</p>
+          <p className="text-sm text-slate-600">{price} · {target.listing.location}. {needsQty ? "The price is the rate × the quantity you enter." : "The final price is calculated from your dates."}</p>
           <Field name="From"><input className={input} type="datetime-local" required value={start} onChange={(e) => setStart(e.target.value)} /></Field>
           <Field name="Until"><input className={input} type="datetime-local" required min={start} value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
+          {needsQty && (
+            <Field name={`How many ${unitName.replace("per ", "")}s?`}>
+              <input className={input} type="number" min="0.1" step="any" required value={qty} onChange={(e) => setQty(e.target.value)} />
+              {Number(qty) > 0 && <span className="mt-1 block text-sm font-semibold text-[#1d5a2b]">Total: ₹{(rate * Number(qty)).toLocaleString("en-IN")}</span>}
+            </Field>
+          )}
           <FormError message={error} />
           <Submit busy={busy}>Request booking</Submit>
         </form>

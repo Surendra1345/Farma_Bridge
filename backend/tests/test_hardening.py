@@ -112,6 +112,27 @@ class HardeningTests(unittest.TestCase):
             svc.create(4, BookingCreate(booking_type="storage", reference_id=1, start_date=start + timedelta(days=1), end_date=start + timedelta(days=5), total_price=1))
         svc.create(4, BookingCreate(booking_type="storage", reference_id=1, start_date=start + timedelta(days=3), end_date=start + timedelta(days=5), total_price=1))
 
+    def test_same_person_cannot_book_overlapping_dates_twice(self):
+        svc = BookingService(self.db)
+        start = datetime.utcnow() + timedelta(days=2)
+        first = svc.create(1, BookingCreate(booking_type="storage", reference_id=1, start_date=start, end_date=start + timedelta(days=5)))
+        with self.assertRaises(HTTPException) as ctx:  # second request inside the first one's dates (both Pending)
+            svc.create(1, BookingCreate(booking_type="storage", reference_id=1, start_date=start + timedelta(days=1), end_date=start + timedelta(days=3)))
+        self.assertIn("already have a booking", ctx.exception.detail)
+        svc.create(4, BookingCreate(booking_type="storage", reference_id=1, start_date=start + timedelta(days=1), end_date=start + timedelta(days=3)))  # someone else may still ask
+        svc.update_status(first.booking_id, 1, "Cancelled")  # after cancelling, the dates are free again
+        svc.create(1, BookingCreate(booking_type="storage", reference_id=1, start_date=start + timedelta(days=1), end_date=start + timedelta(days=3)))
+
+    def test_per_acre_price_uses_quantity_not_a_client_number(self):
+        self.db.add(MachineListing(owner_id=3, machine_photos="m.jpg", machine_type="Drone", pricing_unit="Per Acre", price_per_unit=450, location="Farm"))
+        self.db.commit()
+        svc = BookingService(self.db)
+        start = datetime.utcnow() + timedelta(days=1)
+        with self.assertRaises(HTTPException):  # no quantity -> no more silent Rs 1 bookings
+            svc.create(1, BookingCreate(booking_type="machine", reference_id=1, start_date=start, end_date=start + timedelta(days=1), total_price=1))
+        booking = svc.create(1, BookingCreate(booking_type="machine", reference_id=1, start_date=start, end_date=start + timedelta(days=1), quantity=3, total_price=1))
+        self.assertEqual(booking.total_price, 1350)
+
     def test_overlap_rechecked_when_confirming(self):
         svc = BookingService(self.db)
         start = datetime.utcnow() + timedelta(days=2)
