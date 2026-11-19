@@ -10,6 +10,8 @@ from repositories.storage_listing_repo import StorageListingRepository
 from schemas.booking import BookingCreate
 from service.user_role_service import UserRoleService
 
+MAX_BOOKING_DAYS = 90
+MAX_ADVANCE_DAYS = 365
 VALID_BOOKING_TYPES = {"machine", "storage"}
 VALID_BOOKING_STATUSES = {"Pending", "Confirmed", "Completed", "Cancelled"}
 VALID_TRANSITIONS = {
@@ -45,6 +47,10 @@ class BookingService:
 
         if payload.start_date < datetime.utcnow() - timedelta(minutes=5):
             raise HTTPException(400, "start_date cannot be in the past")
+        if payload.start_date > datetime.utcnow() + timedelta(days=MAX_ADVANCE_DAYS):
+            raise HTTPException(400, f"You can only book up to {MAX_ADVANCE_DAYS} days ahead")
+        if payload.end_date - payload.start_date > timedelta(days=MAX_BOOKING_DAYS):
+            raise HTTPException(400, f"A booking can be at most {MAX_BOOKING_DAYS} days long")
 
         provider_id = self._resolve_provider(payload.booking_type, payload.reference_id, requester_id)
 
@@ -95,17 +101,7 @@ class BookingService:
             # Re-check at confirmation: another request may have been confirmed meanwhile.
             self._ensure_free(booking.booking_type, booking.reference_id, booking.start_date, booking.end_date, exclude_id=booking.booking_id)
 
-        if status == "Confirmed" and booking.booking_type == "machine":
-            listing = self.machine_repo.get_by_id(booking.reference_id)
-            if listing:
-                listing.status = "Booked"
-                self.machine_repo.save(listing)
-
-        if status == "Cancelled" and booking.status == "Confirmed" and booking.booking_type == "machine":
-            listing = self.machine_repo.get_by_id(booking.reference_id)
-            if listing:
-                listing.status = "Available"
-                self.machine_repo.save(listing)
+        # Availability (Available/Booked) is the owner's manual switch; date clashes are caught by _ensure_free.
 
         booking.status = status
         booking.updated_at = datetime.utcnow()

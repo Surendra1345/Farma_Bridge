@@ -171,11 +171,14 @@ class Seeder:
         status("ravi", confirmed[1], "Confirmed")
         status("lakshmi", confirmed[2], "Confirmed")
         status("lakshmi", confirmed[2], "Completed")
+        status("ravi", confirmed[0], "Completed")           # completed orders can be reviewed
+        status("ravi", confirmed[1], "Completed")
+        self.done_orders = {"anil": confirmed[0], "kiran": confirmed[1], "priya": confirmed[2]}
         order("priya", "Tomato", 25)                          # pending
         order("anil", "Onion", 500)                           # pending
         cancelled = order("kiran", "Groundnut", 100)
         status("kiran", cancelled, "Cancelled")
-        print("  orders         6 (2 confirmed, 1 completed, 2 pending, 1 cancelled)")
+        print("  orders         6 (3 completed, 2 pending, 1 cancelled)")
 
     def bookings(self):
         # Local wall-clock times converted to UTC, the same way the web app sends them.
@@ -190,21 +193,26 @@ class Seeder:
 
         tractor = book("suresh", "machine", self.machine_ids["Mahindra 575 Tractor"], 8, 5)          # 5 h x 900
         self.call("patch", f"/bookings/{tractor}/status", "venkat", json=dict(status="Confirmed"))
+        self.call("patch", f"/bookings/{tractor}/status", "venkat", json=dict(status="Completed"))
+        self.done_bookings = {"suresh": tractor}
         book("anil", "machine", self.machine_ids["Rotavator"], 9, 3)                                  # pending
         cold = book("anil", "storage", self.storage_ids["Cold Storage (2-8°C)"], 0, 24 * 7)           # 7 days x 120
         self.call("patch", f"/bookings/{cold}/status", "srinivas", json=dict(status="Confirmed"))
+        self.call("patch", f"/bookings/{cold}/status", "srinivas", json=dict(status="Completed"))
+        self.done_bookings["anil"] = cold
         book("kiran", "storage", self.storage_ids["Dry Warehouse"], 0, 24 * 45)                       # 2 months (ceil)
-        print("  bookings       4 (2 confirmed, 2 pending)")
+        print("  bookings       4 (2 completed, 2 pending)")
 
     def reviews(self):
-        for who, about, rating, comment in [
-            ("anil", "ravi", 5, "Fresh tomatoes, delivered on time."),
-            ("kiran", "ravi", 4, "Good chilli quality, slight delay."),
-            ("priya", "lakshmi", 5, "Sweetest mangoes this season!"),
-            ("suresh", "venkat", 5, "Tractor in great condition, operator was helpful."),
-            ("anil", "srinivas", 4, "Cold room kept produce fresh."),
+        # Reviews must point at a completed order/booking between the two people.
+        for who, about, rating, comment, ctx, ctx_id in [
+            ("anil", "ravi", 5, "Fresh tomatoes, delivered on time.", "order", self.done_orders["anil"]),
+            ("kiran", "ravi", 4, "Good chilli quality, slight delay.", "order", self.done_orders["kiran"]),
+            ("priya", "lakshmi", 5, "Sweetest mangoes this season!", "order", self.done_orders["priya"]),
+            ("suresh", "venkat", 5, "Tractor in great condition, operator was helpful.", "booking", self.done_bookings["suresh"]),
+            ("anil", "srinivas", 4, "Cold room kept produce fresh.", "booking", self.done_bookings["anil"]),
         ]:
-            self.call("post", "/reviews", who, json=dict(reviewed_user_id=self.ids[about], rating=rating, comment=comment))
+            self.call("post", "/reviews", who, json=dict(reviewed_user_id=self.ids[about], rating=rating, comment=comment, context_type=ctx, context_id=ctx_id))
         print("  reviews        5")
 
 

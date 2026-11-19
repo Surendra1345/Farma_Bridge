@@ -1,37 +1,78 @@
-from pydantic import BaseModel, field_validator
+import re
+
+from pydantic import BaseModel, Field, field_validator
+
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$")
+_PHONE = re.compile(r"^\d{10}$")
+
+
+def _clean(v: str | None) -> str | None:
+    return v.strip() if isinstance(v, str) else v
+
+
+def _check_phone(v: str | None) -> str | None:
+    if v is not None and not _PHONE.match(v.strip()):
+        raise ValueError("Phone number must be exactly 10 digits")
+    return _clean(v)
 
 
 class SendOTPRequest(BaseModel):
-    email: str
+    email: str = Field(max_length=254)
 
 
 class VerifyOTPRequest(BaseModel):
-    email: str
-    otp: str
+    email: str = Field(max_length=254)
+    otp: str = Field(max_length=10)
 
 
 class UserCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=2, max_length=100)
     phone_number: str
-    email: str
+    email: str = Field(max_length=254)
     # Sign-in is by emailed one-time code, so a password is optional.
-    password: str | None = None
-    address: str
-    location: str
+    password: str | None = Field(default=None, max_length=128)
+    address: str = Field(min_length=1, max_length=300)
+    location: str = Field(min_length=1, max_length=120)
     latitude: float | None = None
     longitude: float | None = None
     # farmer | buyer | machine_owner | storage_owner
-    roles: list[str] = []
+    roles: list[str] = Field(default=[], max_length=4)
+
+    @field_validator("phone_number")
+    @classmethod
+    def _phone(cls, v):
+        return _check_phone(v)
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v):
+        v = v.strip()
+        if not _EMAIL.match(v):
+            raise ValueError("Enter a valid email address")
+        return v
+
+    @field_validator("name", "address", "location")
+    @classmethod
+    def _strip(cls, v):
+        v = _clean(v)
+        if not v:
+            raise ValueError("This field cannot be blank")
+        return v
 
 
 class UserUpdate(BaseModel):
     """Editable profile fields. Email is not editable (it is the sign-in identity)."""
-    name: str | None = None
+    name: str | None = Field(default=None, max_length=100)
     phone_number: str | None = None
-    address: str | None = None
-    location: str | None = None
+    address: str | None = Field(default=None, max_length=300)
+    location: str | None = Field(default=None, max_length=120)
     latitude: float | None = None
     longitude: float | None = None
+
+    @field_validator("phone_number")
+    @classmethod
+    def _phone(cls, v):
+        return _check_phone(v)
 
 
 class UserResponse(BaseModel):

@@ -1,5 +1,5 @@
 import type {
-  AuthResponse, Booking, CropListing, MachineListing, Order, RegisterInput, Role, StorageListing, User,
+  AuthResponse, Booking, CropListing, MachineListing, Order, RegisterInput, Review, Role, StorageListing, User,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
@@ -18,7 +18,10 @@ export const configureApi = (opts: { getToken: () => string | null; onUnauthoriz
 function messageFrom(body: unknown): string {
   const detail = (body as { detail?: unknown } | null)?.detail;
   if (typeof detail === "string") return detail;
-  if (Array.isArray(detail) && detail[0]?.msg) return String(detail[0].msg);
+  if (Array.isArray(detail) && detail[0]?.msg) {
+    const field = String(detail[0].loc?.at(-1) ?? "").replace(/_/g, " ");
+    return field && field !== "body" ? `${field}: ${detail[0].msg}` : String(detail[0].msg);
+  }
   return "Something went wrong. Please try again.";
 }
 
@@ -80,6 +83,12 @@ export const tradeApi = {
   setStorageStatus: (id: number, value: string) => request<StorageListing>(`/storage-listings/${id}/availability?availability_indicator=${encodeURIComponent(value)}`, { method: "PATCH" }),
   remove: (kind: "crop" | "machine" | "storage", id: number) =>
     request<void>(`/${kind}-listings/${id}`, { method: "DELETE" }),
+};
+
+export const reviewApi = {
+  mine: (reviewer_id: number) => get<Review[]>(`/reviews?reviewer_id=${reviewer_id}`),
+  create: (r: { reviewed_user_id: number; rating: number; comment?: string; context_type: "order" | "booking"; context_id: number }) =>
+    send<Review>("POST", "/reviews", r),
 };
 
 export const mediaUrl = (path?: string | null) => {
