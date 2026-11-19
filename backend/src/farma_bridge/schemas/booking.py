@@ -1,5 +1,10 @@
-from datetime import datetime
-from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+from pydantic import BaseModel, Field, field_validator
+
+
+def to_naive_utc(value: datetime) -> datetime:
+    """The database stores naive UTC. Accept 'Z' / '+05:30' dates from API clients by converting them."""
+    return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
 
 
 class BookingCreate(BaseModel):
@@ -10,6 +15,11 @@ class BookingCreate(BaseModel):
     # Needed for non-time units such as "Per Acre" (how many acres). Ignored for hour/day/week/month.
     quantity: float | None = Field(default=None, gt=0)
     total_price: float | None = None  # ignored: the server always computes the price
+
+    @field_validator("start_date", "end_date")
+    @classmethod
+    def _naive_utc(cls, v: datetime) -> datetime:
+        return to_naive_utc(v)
 
 
 class BookingStatusUpdate(BaseModel):

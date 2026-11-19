@@ -28,7 +28,12 @@ export type RegisterInput = {
   name: string; phone_number: string; email: string; address: string; location: string; roles: Role[];
 };
 
-export type Party = { id: number; name: string; location: string; phone_number?: string | null };
+export type Party = { id: number; name: string; location: string; phone_number?: string | null; trust_score?: number | null };
+
+export type Review = {
+  review_id: number; reviewer_id: number; reviewed_user_id: number; rating: number; comment?: string | null;
+  context_type?: string | null; context_id?: number | null; created_at: string;
+};
 
 export type Order = {
   order_id: number; listing_id: number; buyer_id: number; farmer_id: number; quantity_ordered: number; total_price: number;

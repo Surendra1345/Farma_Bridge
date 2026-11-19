@@ -20,7 +20,7 @@ def _party(db: Session, user_id: int, share_phone: bool) -> Party | None:
     user = db.get(User, user_id)
     if not user:
         return None
-    return Party(id=user.id, name=user.name, location=user.location, phone_number=user.phone_number if share_phone else None)
+    return Party(id=user.id, name=user.name, location=user.location, phone_number=user.phone_number if share_phone else None, trust_score=user.trust_score)
 
 
 def order_view(db: Session, order: Order) -> OrderView:

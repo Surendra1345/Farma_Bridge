@@ -11,6 +11,7 @@ class Party(BaseModel):
     name: str
     location: str
     phone_number: str | None = None
+    trust_score: float | None = None  # average review rating, if any
 
 
 class OrderView(OrderResponse):

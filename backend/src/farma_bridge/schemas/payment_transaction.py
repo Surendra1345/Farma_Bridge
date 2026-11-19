@@ -1,5 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from schemas.booking import to_naive_utc
 
 
 class PaymentTransactionCreate(BaseModel):
@@ -8,6 +9,11 @@ class PaymentTransactionCreate(BaseModel):
     period_start: datetime
     period_end: datetime
     payment_gateway_ref: str | None = None
+
+    @field_validator("period_start", "period_end")
+    @classmethod
+    def _naive_utc(cls, v: datetime) -> datetime:
+        return to_naive_utc(v)
 
 
 class PaymentStatusUpdate(BaseModel):

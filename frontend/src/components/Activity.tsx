@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Inbox, MessageCircle, Phone, ShoppingBag } from "lucide-react";
-import { mediaUrl, tradeApi } from "../api";
+import { CalendarDays, Inbox, MessageCircle, Phone, ShoppingBag, Star } from "lucide-react";
+import { mediaUrl, reviewApi, tradeApi } from "../api";
 import { useAuth } from "../auth";
 import type { Booking, Order, Party } from "../types";
 import { FormError } from "./AuthSheet";
@@ -52,16 +52,60 @@ function actionsFor(item: Item, side: "mine" | "incoming"): { label: string; sta
   return [];
 }
 
+/** After a deal is Completed, each person can rate the other once. */
+function ReviewBox({ item, reviewed }: { item: Item; reviewed: boolean }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (item.status !== "Completed" || !item.other) return null;
+  if (reviewed) return <p className="mt-2 text-xs font-semibold text-[#1d5a2b]">✓ You rated {item.other.name}</p>;
+  if (!open) return <button onClick={() => setOpen(true)} className="mt-2 inline-flex items-center gap-1 rounded-lg border border-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-800"><Star size={14} />Rate {item.other.name}</button>;
+  const submit = async () => {
+    if (!rating) { setError("Pick 1 to 5 stars."); return; }
+    setBusy(true); setError("");
+    try {
+      await reviewApi.create({ reviewed_user_id: item.other!.id, rating, comment: comment.trim() || undefined, context_type: item.kind, context_id: item.id });
+      await Promise.all([qc.invalidateQueries({ queryKey: ["my-reviews", user?.id] }), qc.invalidateQueries({ queryKey: ["orders"] }), qc.invalidateQueries({ queryKey: ["bookings"] })]);
+    } catch (e) { setError(e instanceof Error ? e.message : "Couldn't save your review."); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="mt-2 rounded-xl bg-amber-50 p-3">
+      <p className="text-sm font-semibold">How was it with {item.other.name}?</p>
+      <div className="mt-1 flex gap-1" role="radiogroup" aria-label="Rating">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} onClick={() => setRating(n)}>
+            <Star size={26} className={n <= rating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+          </button>
+        ))}
+      </div>
+      <textarea value={comment} maxLength={500} onChange={(e) => setComment(e.target.value)} placeholder="Optional: what went well or badly?" rows={2}
+        className="mt-2 w-full rounded-lg border border-amber-200 bg-white p-2 text-sm" />
+      <FormError message={error} />
+      <div className="mt-2 flex justify-end gap-2">
+        <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold" onClick={() => setOpen(false)}>Not now</button>
+        <button disabled={busy} className="rounded-lg bg-[#1d5a2b] px-4 py-1.5 text-sm font-bold text-white disabled:opacity-60" onClick={submit}>{busy ? "Saving…" : "Submit review"}</button>
+      </div>
+    </div>
+  );
+}
+
 function useActivity(side: "mine" | "incoming") {
   const { user } = useAuth();
   const orders = useQuery({ queryKey: ["orders", user?.id], queryFn: tradeApi.myOrders, enabled: !!user });
   const bookings = useQuery({ queryKey: ["bookings", user?.id], queryFn: tradeApi.myBookings, enabled: !!user });
   const uid = user?.id;
+  const reviews = useQuery({ queryKey: ["my-reviews", uid], queryFn: () => reviewApi.mine(uid!), enabled: !!user });
+  const reviewed = new Set((reviews.data ?? []).map((r) => `${r.context_type}:${r.context_id}`));
   const items: Item[] = [
     ...(orders.data ?? []).filter((o) => (side === "mine" ? o.buyer_id === uid : o.farmer_id === uid)).map((o) => orderItem(o, side === "mine")),
     ...(bookings.data ?? []).filter((b) => (side === "mine" ? b.requester_id === uid : b.provider_id === uid)).map((b) => bookingItem(b, side === "mine")),
   ].sort((a, b) => Number(ACTIVE.has(b.status)) - Number(ACTIVE.has(a.status)) || b.sortAt.localeCompare(a.sortAt));
-  return { items, loading: orders.isLoading || bookings.isLoading, failed: orders.isError || bookings.isError };
+  return { items, reviewed, loading: orders.isLoading || bookings.isLoading, failed: orders.isError || bookings.isError };
 }
 
 /** Number of requests on my listings still waiting for my answer. */
@@ -71,7 +115,7 @@ export function usePendingRequestCount() {
 
 export function ActivityList({ side }: { side: "mine" | "incoming" }) {
   const qc = useQueryClient();
-  const { items, loading, failed } = useActivity(side);
+  const { items, reviewed, loading, failed } = useActivity(side);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -125,7 +169,7 @@ export function ActivityList({ side }: { side: "mine" | "incoming" }) {
                   <p className="mt-0.5 flex items-center gap-1 text-sm text-slate-600">{item.kind === "booking" && <CalendarDays size={14} />}{item.detail} · <b>{money(item.total)}</b></p>
                   {item.other && (
                     <p className="mt-1 text-sm text-slate-700">
-                      {item.otherRole}: <b>{item.other.name}</b> · {item.other.location}
+                      {item.otherRole}: <b>{item.other.name}</b>{item.other.trust_score ? <span className="ml-1 text-amber-700" title="Average rating">★ {item.other.trust_score.toFixed(1)}</span> : null} · {item.other.location}
                     </p>
                   )}
                   {item.other?.phone_number && (
@@ -139,6 +183,7 @@ export function ActivityList({ side }: { side: "mine" | "incoming" }) {
                   <p className="text-xs text-slate-400">{item.when}</p>
                 </div>
               </div>
+              <ReviewBox item={item} reviewed={reviewed.has(`${item.kind}:${item.id}`)} />
               {actions.length > 0 && (
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   {actions.map((a) => {

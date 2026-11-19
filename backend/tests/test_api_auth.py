@@ -75,7 +75,7 @@ class ApiTests(unittest.TestCase):
             self.assertFalse(db.query(User).filter_by(email=email).one().is_verified)
 
     def test_register_rejects_unknown_role(self):
-        r = self.c.post("/users/register", json=dict(name="x", phone_number="1", email="bad@example.com", address="a", location="l", roles=["admin"]))
+        r = self.c.post("/users/register", json=dict(name="xy", phone_number="9111111111", email="bad@example.com", address="a", location="l", roles=["admin"]))
         self.assertEqual(r.status_code, 400)
 
     def test_verify_returns_token_and_marks_verified(self):
@@ -119,7 +119,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(fixed.json()["id"], body["id"])  # the unfinished account was updated, not duplicated
         email = "fixed-" + email
         self.login(email)
-        dup = self.c.post("/users/register", json=dict(name="Z", phone_number="9222222222", email=email, address="a", location="l"))
+        dup = self.c.post("/users/register", json=dict(name="Zed", phone_number="9222222222", email=email, address="a", location="l"))
         self.assertEqual(dup.status_code, 400)
 
     def test_unknown_email_is_404_for_the_signup_redirect(self):
@@ -142,7 +142,7 @@ class ApiTests(unittest.TestCase):
     def test_cannot_act_as_another_user_via_query_param(self):
         farmer_h, farmer, _ = self.user(["farmer"])
         buyer_h, buyer, _ = self.user(["buyer"])
-        crop = self.c.post("/crop-listings", headers=farmer_h, data=dict(crop_name="Rice", category="Grains", quantity=50, unit="kg", price_per_kg=10, location="G"),
+        crop = self.c.post("/crop-listings", headers=farmer_h, data=dict(crop_name="Rice", category="Grains", quantity=50, unit="kg", price_per_kg=10, location="Guntur"),
                            files={"post_cultivation_photo": ("a.png", png(), "image/png")}).json()
         # buyer_id in the query string must be ignored: the order belongs to the token's user.
         r = self.c.post(f"/orders?buyer_id={farmer['id']}", headers=buyer_h, json=dict(listing_id=crop["id"], quantity_ordered=5))
@@ -152,7 +152,7 @@ class ApiTests(unittest.TestCase):
     def test_orders_list_shows_only_my_orders(self):
         farmer_h, _, _ = self.user(["farmer"])
         b1, _, _ = self.user(["buyer"]); b2, _, _ = self.user(["buyer"])
-        crop = self.c.post("/crop-listings", headers=farmer_h, data=dict(crop_name="Dal", category="Grains", quantity=50, unit="kg", price_per_kg=10, location="G"),
+        crop = self.c.post("/crop-listings", headers=farmer_h, data=dict(crop_name="Dal", category="Grains", quantity=50, unit="kg", price_per_kg=10, location="Guntur"),
                            files={"post_cultivation_photo": ("a.png", png(), "image/png")}).json()
         o = self.c.post("/orders", headers=b1, json=dict(listing_id=crop["id"], quantity_ordered=1)).json()
         self.assertEqual([x["order_id"] for x in self.c.get("/orders", headers=b1).json()], [o["order_id"]])
@@ -163,14 +163,14 @@ class ApiTests(unittest.TestCase):
     # -- roles & posting
     def test_posting_requires_role_then_succeeds_after_adding_it(self):
         h, _, _ = self.user(["buyer"])
-        data, files = dict(crop_name="Chilli", category="Vegetables", quantity=5, unit="kg", price_per_kg=9, location="G"), {"post_cultivation_photo": ("a.png", png(), "image/png")}
+        data, files = dict(crop_name="Chilli", category="Vegetables", quantity=5, unit="kg", price_per_kg=9, location="Guntur"), {"post_cultivation_photo": ("a.png", png(), "image/png")}
         self.assertEqual(self.c.post("/crop-listings", headers=h, data=data, files=files).status_code, 403)
         self.assertEqual(self.c.post("/users/me/roles", headers=h, json=dict(role_type="farmer")).status_code, 201)
         self.assertEqual(self.c.post("/crop-listings", headers=h, data=data, files=files).status_code, 201)
 
     def test_only_owner_can_edit_or_delete_listing(self):
         owner_h, _, _ = self.user(["farmer"]); other_h, _, _ = self.user(["farmer"])
-        crop = self.c.post("/crop-listings", headers=owner_h, data=dict(crop_name="Okra", category="Vegetables", quantity=5, unit="kg", price_per_kg=9, location="G"),
+        crop = self.c.post("/crop-listings", headers=owner_h, data=dict(crop_name="Okra", category="Vegetables", quantity=5, unit="kg", price_per_kg=9, location="Guntur"),
                            files={"post_cultivation_photo": ("a.png", png(), "image/png")}).json()
         self.assertEqual(self.c.delete(f"/crop-listings/{crop['id']}", headers=other_h).status_code, 403)
         self.assertEqual(self.c.delete(f"/crop-listings/{crop['id']}", headers=owner_h).status_code, 204)
@@ -178,7 +178,7 @@ class ApiTests(unittest.TestCase):
     # -- bookings: price computed server-side
     def test_booking_price_is_computed_by_server(self):
         owner_h, _, _ = self.user(["machine_owner"]); req_h, _, _ = self.user(["buyer"])
-        m = self.c.post("/machine-listings", headers=owner_h, data=dict(machine_type="Tractor", pricing_unit="Per Hour", price_per_unit=500, location="G"),
+        m = self.c.post("/machine-listings", headers=owner_h, data=dict(machine_type="Tractor", pricing_unit="Per Hour", price_per_unit=500, location="Guntur"),
                         files={"machine_photo": ("a.png", png(), "image/png")}).json()
         r = self.c.post("/bookings", headers=req_h, json=dict(booking_type="machine", reference_id=m["listing_id"], start_date="2026-12-01T09:00:00", end_date="2026-12-01T13:00:00", total_price=1))
         self.assertEqual(r.status_code, 201, r.text)
@@ -200,11 +200,11 @@ class ApiTests(unittest.TestCase):
 
     def test_editing_crop_quantity_keeps_remaining_stock_consistent(self):
         farmer_h, _, _ = self.user(["farmer"]); buyer_h, _, _ = self.user(["buyer"])
-        crop = self.c.post("/crop-listings", headers=farmer_h, data=dict(crop_name="Maize", category="Grains", quantity=100, unit="kg", price_per_kg=10, location="G"),
+        crop = self.c.post("/crop-listings", headers=farmer_h, data=dict(crop_name="Maize", category="Grains", quantity=100, unit="kg", price_per_kg=10, location="Guntur"),
                            files={"post_cultivation_photo": ("a.png", png(), "image/png")}).json()
         o = self.c.post("/orders", headers=buyer_h, json=dict(listing_id=crop["id"], quantity_ordered=30)).json()
         self.c.patch(f"/orders/{o['order_id']}/status", headers=farmer_h, json=dict(status="Confirmed"))   # stock now 70
-        fields = dict(crop_name="Maize", category="Grains", unit="kg", price_per_kg=10, location="G", status="Partially Sold")
+        fields = dict(crop_name="Maize", category="Grains", unit="kg", price_per_kg=10, location="Guntur", status="Partially Sold")
         up = self.c.put(f"/crop-listings/{crop['id']}", headers=farmer_h, data=dict(fields, quantity=150))
         self.assertEqual((up.status_code, up.json()["quantity_remaining"]), (200, 120), up.text)   # 150 - 30 sold
         low = self.c.put(f"/crop-listings/{crop['id']}", headers=farmer_h, data=dict(fields, quantity=20))
@@ -212,22 +212,22 @@ class ApiTests(unittest.TestCase):
 
     def test_owner_cannot_self_assign_verified_badge(self):
         h, _, _ = self.user(["storage_owner"])
-        st = self.c.post("/storage-listings", headers=h, data=dict(storage_type="Shed", total_capacity=10, pricing_unit="Per Day", price=5, location="G"),
+        st = self.c.post("/storage-listings", headers=h, data=dict(storage_type="Shed", total_capacity=10, pricing_unit="Per Day", price=5, location="Guntur"),
                          files={"storage_photo": ("a.png", png(), "image/png")}).json()
-        up = self.c.put(f"/storage-listings/{st['listing_id']}", headers=h, data=dict(storage_type="Shed 2", total_capacity=10, pricing_unit="Per Day", price=5, location="G", verified_badge="true"))
+        up = self.c.put(f"/storage-listings/{st['listing_id']}", headers=h, data=dict(storage_type="Shed 2", total_capacity=10, pricing_unit="Per Day", price=5, location="Guntur", verified_badge="true"))
         self.assertEqual(up.status_code, 200, up.text)
         self.assertEqual((up.json()["storage_type"], up.json()["verified_badge"]), ("Shed 2", False))
 
     def test_machine_status_is_validated_on_edit(self):
         h, _, _ = self.user(["machine_owner"])
-        m = self.c.post("/machine-listings", headers=h, data=dict(machine_type="Plough", pricing_unit="Per Hour", price_per_unit=5, location="G"),
+        m = self.c.post("/machine-listings", headers=h, data=dict(machine_type="Plough", pricing_unit="Per Hour", price_per_unit=5, location="Guntur"),
                         files={"machine_photo": ("a.png", png(), "image/png")}).json()
-        bad = self.c.put(f"/machine-listings/{m['listing_id']}", headers=h, data=dict(machine_type="Plough", pricing_unit="Per Hour", price_per_unit=5, location="G", status="Whatever"))
+        bad = self.c.put(f"/machine-listings/{m['listing_id']}", headers=h, data=dict(machine_type="Plough", pricing_unit="Per Hour", price_per_unit=5, location="Guntur", status="Whatever"))
         self.assertEqual(bad.status_code, 400)
 
     def test_cannot_book_or_order_your_own_listing(self):
         h, _, _ = self.user(["machine_owner", "buyer"])
-        m = self.c.post("/machine-listings", headers=h, data=dict(machine_type="Own", pricing_unit="Per Hour", price_per_unit=5, location="G"),
+        m = self.c.post("/machine-listings", headers=h, data=dict(machine_type="Own", pricing_unit="Per Hour", price_per_unit=5, location="Guntur"),
                         files={"machine_photo": ("a.png", png(), "image/png")}).json()
         r = self.c.post("/bookings", headers=h, json=dict(booking_type="machine", reference_id=m["listing_id"], start_date="2026-12-01T09:00:00", end_date="2026-12-01T11:00:00"))
         self.assertEqual(r.status_code, 400)
@@ -235,7 +235,7 @@ class ApiTests(unittest.TestCase):
     # -- my orders / incoming requests
     def test_orders_show_listing_and_people_and_phones_while_pending(self):
         farmer_h, farmer, _ = self.user(["farmer"], "Grower Gopal"); buyer_h, buyer, _ = self.user(["buyer"], "Buyer Bala")
-        crop = self.c.post("/crop-listings", headers=farmer_h, data=dict(crop_name="Brinjal", category="Vegetables", quantity=40, unit="kg", price_per_kg=20, location="G"),
+        crop = self.c.post("/crop-listings", headers=farmer_h, data=dict(crop_name="Brinjal", category="Vegetables", quantity=40, unit="kg", price_per_kg=20, location="Guntur"),
                            files={"post_cultivation_photo": ("a.png", png(), "image/png")}).json()
         self.c.post("/orders", headers=buyer_h, json=dict(listing_id=crop["id"], quantity_ordered=4))
         mine = self.c.get("/orders", headers=buyer_h).json()[0]
@@ -251,7 +251,7 @@ class ApiTests(unittest.TestCase):
 
     def test_bookings_show_listing_and_people(self):
         owner_h, owner, _ = self.user(["storage_owner"], "Owner Omkar"); req_h, req, _ = self.user(["buyer"], "Renter Rani")
-        st = self.c.post("/storage-listings", headers=owner_h, data=dict(storage_type="Cold Room", total_capacity=10, pricing_unit="Per Day", price=100, location="G"),
+        st = self.c.post("/storage-listings", headers=owner_h, data=dict(storage_type="Cold Room", total_capacity=10, pricing_unit="Per Day", price=100, location="Guntur"),
                          files={"storage_photo": ("a.png", png(), "image/png")}).json()
         b = self.c.post("/bookings", headers=req_h, json=dict(booking_type="storage", reference_id=st["listing_id"], start_date="2026-12-01T00:00:00", end_date="2026-12-03T00:00:00")).json()
         self.assertEqual((b["listing_title"], b["provider"]["name"], b["requester"]["name"], b["total_price"]), ("Cold Room", "Owner Omkar", "Renter Rani", 200))

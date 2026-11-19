@@ -20,7 +20,7 @@ def _send_otp_email_sync(to_email: str, otp: str, user_name: str = "User") -> bo
     """
     Sends a 6-digit OTP email to the user for FarmaBridge registration or account verification.
     """
-    load_dotenv(override=True)
+    load_dotenv()  # never override variables already set in the environment (dev/tests/CI must not send real mail)
     email_address = os.getenv("EMAIL_ADDRESS")
     email_password = os.getenv("EMAIL_PASSWORD")
     send_via_smtp = smtp_enabled()

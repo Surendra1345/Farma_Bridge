@@ -150,7 +150,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (41 tests, incl. `tests/test_hardening.py` and `tests/test_contact_details.py`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (46 tests, incl. `tests/test_hardening.py`, `tests/test_contact_details.py` and `tests/test_input_validation.py`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |
@@ -190,6 +190,16 @@ sign-in code appears in the backend terminal as
   per-acre (or other) rates from the `quantity` the requester enters - a client-sent `total_price` is ignored. Order confirm/cancel lock the listing row
   so concurrent requests cannot oversell stock (PostgreSQL).
 - A crop listing with `Pending`/`Confirmed` orders cannot be deleted.
+- **Input validation:** names, phone (exactly 10 digits), email, addresses, quantities and prices are
+  validated on the server (4xx on nonsense, not just in the web form). Pricing units are fixed lists:
+  machinery `Per Hour`/`Per Acre`, storage `Per Day`/`Per Week`/`Per Month`.
+- **Booking dates** may be sent with or without a timezone (`Z`, `+05:30`; converted to UTC), can't
+  be more than 365 days ahead, and a booking can be at most 90 days long. Confirming a machinery
+  booking only blocks *those dates*; `Available`/`Booked` on a machine is the owner's manual switch.
+- **Reviews in the app:** a completed order/booking shows a **Rate** button (1-5 stars + comment) to
+  both people; their average rating appears next to their name on orders and bookings.
+- `OTP_EMAIL_ENABLED` and other settings set in the real environment always win over `.env`, so
+  tests and CI can never send real email by accident.
 - `GET /health` is a lightweight liveness check (used by the Docker health check).
   The Docker PostgreSQL port is published on `127.0.0.1` only.
 - Known limits: tokens last 7 days and cannot be revoked; sign-in codes are stored
