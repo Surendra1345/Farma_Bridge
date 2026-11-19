@@ -13,6 +13,8 @@ type AuthValue = {
   updateUser: (user: User) => void;
   /** Make sure the signed-in user holds `role`, adding it if needed. */
   ensureRole: (role: Role) => Promise<void>;
+  /** Switch a role off (the server refuses while open orders/bookings or live listings remain). */
+  removeRole: (role: Role) => Promise<void>;
 };
 const AuthContext = createContext<AuthValue | null>(null);
 
@@ -46,9 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn(session.token, { ...session.user, roles: [...session.user.roles, role] });
   }, [session, signIn]);
 
+  const removeRole = useCallback(async (role: Role) => {
+    if (!session) return;
+    await authApi.removeRole(role);
+    signIn(session.token, { ...session.user, roles: session.user.roles.filter((r) => r !== role) });
+  }, [session, signIn]);
+
   const updateUser = useCallback((user: User) => { if (session) signIn(session.token, user); }, [session, signIn]);
 
-  const value = useMemo(() => ({ user: session?.user ?? null, signIn, signOut, updateUser, ensureRole }), [session, signIn, signOut, updateUser, ensureRole]);
+  const value = useMemo(() => ({ user: session?.user ?? null, signIn, signOut, updateUser, ensureRole, removeRole }), [session, signIn, signOut, updateUser, ensureRole, removeRole]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

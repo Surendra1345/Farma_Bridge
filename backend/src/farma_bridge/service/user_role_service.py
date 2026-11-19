@@ -33,10 +33,46 @@ class UserRoleService:
 
         return self.repo.create(UserRole(user_id=user_id, role_type=role_type))
 
+    def _blockers(self, user_id: int, role_type: str) -> list[str]:
+        """Reasons this role can't be switched off yet (open deals or listings still live)."""
+        from sqlalchemy import or_
+        from model.booking import Booking
+        from model.farmer import Farmer
+        from model.machine_listing import MachineListing
+        from model.order import Order
+        from model.storage_listing import StorageListing
+
+        db, open_ = self.repo.db, ("Pending", "Confirmed")
+        reasons: list[str] = []
+        if role_type == "farmer":
+            if db.query(Order).filter(Order.farmer_id == user_id, Order.status.in_(open_)).count():
+                reasons.append("you still have open orders on your crops")
+            if db.query(Farmer).filter(Farmer.user_id == user_id, Farmer.status != "Sold").count():
+                reasons.append("you still have crop listings on the marketplace (delete them or mark them Sold)")
+        elif role_type == "buyer":
+            if db.query(Order).filter(Order.buyer_id == user_id, Order.status.in_(open_)).count():
+                reasons.append("you still have open orders")
+            if db.query(Booking).filter(Booking.requester_id == user_id, Booking.status.in_(open_)).count():
+                reasons.append("you still have open bookings")
+        elif role_type == "machine_owner":
+            if db.query(Booking).filter(Booking.provider_id == user_id, Booking.booking_type == "machine", Booking.status.in_(open_)).count():
+                reasons.append("you still have open machinery bookings")
+            if db.query(MachineListing).filter(MachineListing.owner_id == user_id, MachineListing.status != "Booked").count():
+                reasons.append("you still have machinery listed (delete it or mark it Booked)")
+        elif role_type == "storage_owner":
+            if db.query(Booking).filter(Booking.provider_id == user_id, Booking.booking_type == "storage", Booking.status.in_(open_)).count():
+                reasons.append("you still have open storage bookings")
+            if db.query(StorageListing).filter(StorageListing.owner_id == user_id, StorageListing.availability_indicator != "Full").count():
+                reasons.append("you still have storage listed (delete it or mark it Full)")
+        return reasons
+
     def deactivate_role(self, user_id: int, role_type: str) -> UserRole:
         role = self.repo.get_active(user_id, role_type)
         if not role:
             raise HTTPException(404, "Active role not found for this user")
+        blockers = self._blockers(user_id, role_type)
+        if blockers:
+            raise HTTPException(400, "Can't turn this off yet: " + "; ".join(blockers) + ".")
         role.deactivated_at = datetime.utcnow()  # soft-remove — keeps history + existing listings
         return self.repo.save(role)
 
