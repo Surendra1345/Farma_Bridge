@@ -20,6 +20,17 @@ code) unlocks selling, buying and booking.
 | **Machinery owner** | Post machines for rent, confirm bookings |
 | **Storage owner** | Post storage space, confirm bookings |
 
+**Crop Doctor (AI).** Tap **Crop Doctor** on the home page, menu or header, add 1-4 photos of a sick plant (camera or gallery),
+optionally name the crop and describe what you saw, and pick **English, తెలుగు or हिन्दी**. Claude looks at the photos and answers
+with: what looks wrong (disease, pest, nutrient or water stress) with confidence and severity, why it happens, what to do now, organic
+and chemical options (active ingredients only, never doses), how to prevent it, and when to see an agriculture officer or Krishi
+Vigyan Kendra. If the photos are unclear it says so and asks for better ones. The result can be shared on WhatsApp. Photos are
+shrunk, stripped of camera/GPS data, sent to the AI for that one check and **never saved**. It is guidance from photos, not a lab test.
+Setup: put `ANTHROPIC_API_KEY` in `.env` (see `.env.example`) and `docker compose up -d`; without a key the feature shows a friendly
+"not switched on yet" message and nothing else changes. `CROP_DOCTOR_MODEL` picks the Claude model (default `claude-opus-5-5`; a
+cheaper one such as `claude-sonnet-5-5` also works) and `CROP_DOCTOR_PER_HOUR` limits checks per signed-in user (default 10, 0 = no
+limit) so a bill can't run away.
+
 **Ask first.** On every crop, machinery and storage card, signed-in visitors see **WhatsApp** and **Call**
 buttons for the owner (WhatsApp opens a chat pre-filled with the listing name), so you can ask "is it still
 available?" before ordering. Signed-out visitors see "Sign in to chat or call". The owner's phone number is only
@@ -169,7 +180,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (67 tests, see `backend/tests/`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (77 tests, see `backend/tests/`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |

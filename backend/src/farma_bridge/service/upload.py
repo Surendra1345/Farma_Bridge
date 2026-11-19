@@ -54,6 +54,21 @@ class UploadService:
         except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
             raise HTTPException(400, "File is not a valid JPEG, PNG, or WEBP image")
 
+    async def read_for_vision(self, file: UploadFile, max_mb: int = 10) -> bytes:
+        """Validate an uploaded photo and return it as a clean JPEG (EXIF/GPS stripped, auto-rotated, max 1600 px).
+        Nothing is written to disk: these photos only go to the diagnosis request."""
+        if file.content_type not in ALLOWED_TYPES:
+            raise HTTPException(400, "Only JPEG, PNG, or WEBP photos are allowed")
+        data = await file.read()
+        if not data:
+            raise HTTPException(400, "One of the photos is empty")
+        if len(data) > max_mb * 1024 * 1024:
+            raise HTTPException(400, f"Each photo must be under {max_mb}MB")
+        ext = _sniff_image_type(data)
+        if ext is None or file.content_type not in _TYPES_FOR_EXT[ext]:
+            raise HTTPException(400, "One of the files is not a valid JPEG, PNG, or WEBP photo")
+        return self._normalise(data, "jpg")
+
     @staticmethod
     def delete(url: str | None) -> None:
         """Remove an uploaded file we own (no-op for anything else, e.g. a CDN URL)."""
