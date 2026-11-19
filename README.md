@@ -23,11 +23,13 @@ code) unlocks selling, buying and booking.
 **Crop Doctor (AI).** Tap **Crop Doctor** on the home page, menu or header, add up to 3 photos of a sick plant (camera or gallery),
 optionally name the crop and describe what you saw, and pick **English, తెలుగు or हिन्दी**. A vision AI model running on
 [Groq](https://groq.com) looks at the photos and answers with: what looks wrong (disease, pest, nutrient or water stress) with
-confidence and severity, why it happens, what to do now, organic and chemical options (active ingredients only, never doses),
+confidence and severity, why it happens, what to do now, organic and chemical options (active ingredients only - never doses, mixing rates or spray schedules),
 how to prevent it, and when to see an agriculture officer or Krishi Vigyan Kendra. If the photos are unclear it says so and asks
 for better ones. The result can be shared on WhatsApp. Photos are shrunk, stripped of camera/GPS data and sent to Groq for that one
 check; Farma Bridge **never saves them**. It is guidance from photos, not a lab test - a general-purpose AI model can be wrong, so
-the app always points serious cases to an agriculture officer.
+the app always points serious cases to an agriculture officer. The "no doses" rule is written into the AI's instructions *and* enforced
+after the fact: if the model slips and writes an amount ("5 ml per litre", "every 7 days", "0.3% solution"), the app removes it and tells the
+farmer to use the dose on the product label.
 
 Setup: create a key at <https://console.groq.com>, put it in `.env` as `GROQ_API_KEY=...` (see `.env.example`) and run
 `docker compose up --build -d`. Without a key the feature shows a friendly "not switched on yet" message and nothing else changes.
@@ -185,7 +187,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (80 tests, see `backend/tests/`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (84 tests, see `backend/tests/`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |

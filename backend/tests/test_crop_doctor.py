@@ -21,6 +21,7 @@ from PIL import Image  # noqa: E402
 import main  # noqa: E402
 from config import ratelimit  # noqa: E402
 from schemas.crop_doctor import CropDiagnosis, CropIssue, CropTreatment  # noqa: E402
+from service.crop_doctor import LABEL_NOTE, scrub_amounts  # noqa: E402
 
 SENT = {}
 
@@ -224,6 +225,43 @@ class CropDoctorTests(unittest.TestCase):
             self.assertNotIn("boom", r.text)                           # raw SDK/API messages never reach the farmer
         both = FakeGroq(err(groq.BadRequestError, 400))                # rejected in both modes
         self.assertEqual(self.post(h, both).status_code, 502); self.assertEqual(len(both.calls), 2)
+
+    # ---- the no-doses rule (prompt + server-side safety net)
+    def test_prompt_forbids_doses_for_every_product(self):
+        h = self.user(); fake = FakeGroq(ok_reply())
+        self.post(h, fake)
+        system = fake.calls[0]["messages"][0]["content"]
+        self.assertIn("Never write doses", system); self.assertIn("ANY product", system)
+
+    def test_scrub_removes_doses_rates_and_spray_schedules(self):
+        for text in ["Spray a solution of Neem oil (5ml per liter of water) on the leaves. Repeat every 7-10 days.",
+                     "Mancozeb 2.5 g/L water, spray twice a week", "Apply 250 g per acre of copper oxychloride",
+                     "Use a 0.3% solution of copper fungicide", "Mix 2 tablespoons per 15 litre pump of neem oil",
+                     "Spray 1-2 ml/l of neem oil", "Dissolve 20 g in 10 litres water and spray 3 times a week",
+                     "నీమ్ ఆయిల్ 5 ml/లీటర్ పిచికారీ చేయండి"]:
+            out = scrub_amounts(text)
+            self.assertNotRegex(out, r"\d+\s*(ml|g\b|kg|l\b|litre|liter|%|tablespoon|times|days|sprays)", text)
+            self.assertIn(LABEL_NOTE, out)
+        self.assertIn("Spray a solution of Neem oil on the leaves", scrub_amounts("Spray a solution of Neem oil (5ml per liter of water) on the leaves. Repeat every 7-10 days."))
+        kept = scrub_amounts("Carbendazim 50% WP at 1 g per litre, 2 sprays 10 days apart")
+        self.assertIn("50% WP", kept)                                                      # the product's own strength is not a dose
+        self.assertNotRegex(kept, r"1 g|sprays|days apart")
+
+    def test_scrub_leaves_ordinary_advice_alone(self):
+        for text in ["Neem oil spray in the evening, following the label", "Space plants 60 cm apart for airflow", "Mulch with straw to stop soil splash",
+                     "Remove infected leaves from the 3 plants nearest the gate", "Rotate with non-solanaceous crops for 2 seasons"]:
+            self.assertEqual(scrub_amounts(text), text)
+
+    def test_doses_in_the_models_answer_never_reach_the_farmer(self):
+        h = self.user()
+        t = CropTreatment(do_now=["Spray neem 5 ml per litre every 7 days", "Water the plants 2 times a week in the morning", "Remove infected leaves"],
+                          organic_options=["Neem oil (5ml per liter of water). Repeat every 7-10 days."],
+                          chemical_options=["Mancozeb at 2.5 g/L, 3 sprays 10 days apart"])
+        r = self.post(h, FakeGroq(ok_reply(treatment=t, prevention=["Spray copper fungicide 3 g per litre before the rains", "Stake plants 60 cm apart"]))).json()
+        body = json.dumps(r["treatment"]) + json.dumps(r["prevention"])
+        self.assertNotRegex(body, r"\d+\s*(ml|g/|g per|litre|liter|sprays|days apart)")
+        self.assertIn("Water the plants 2 times a week in the morning", r["treatment"]["do_now"])   # non-pesticide advice untouched
+        self.assertIn("Stake plants 60 cm apart", r["prevention"])
 
     # ---- cost control
     def test_hourly_quota_per_user(self):
