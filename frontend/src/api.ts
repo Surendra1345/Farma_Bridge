@@ -1,5 +1,5 @@
 import type {
-  AuthResponse, Booking, CropListing, MachineListing, AdminUser, Order, PaymentAction, PaymentMethod, RegisterInput, Review, UserReport, Role, StorageListing, User,
+  AuthResponse, Booking, CropListing, MachineListing, AdminUser, CropDiagnosis, DoctorStatus, Order, PaymentAction, PaymentMethod, RegisterInput, Review, UserReport, Role, StorageListing, User,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
@@ -89,6 +89,18 @@ export const tradeApi = {
   setStorageStatus: (id: number, value: string) => request<StorageListing>(`/storage-listings/${id}/availability?availability_indicator=${encodeURIComponent(value)}`, { method: "PATCH" }),
   remove: (kind: "crop" | "machine" | "storage", id: number) =>
     request<void>(`/${kind}-listings/${id}`, { method: "DELETE" }),
+};
+
+export const doctorApi = {
+  status: () => get<DoctorStatus>("/crop-doctor/status"),
+  diagnose: (photos: File[], fields: { crop_name?: string; notes?: string; language: string }) => {
+    const form = new FormData();
+    photos.forEach((f) => form.append("photos", f, f.name));
+    if (fields.crop_name) form.append("crop_name", fields.crop_name);
+    if (fields.notes) form.append("notes", fields.notes);
+    form.append("language", fields.language);
+    return request<CropDiagnosis>("/crop-doctor/diagnose", { method: "POST", body: form });
+  },
 };
 
 export const adminApi = {

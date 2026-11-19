@@ -65,3 +65,15 @@ export type Booking = {
   listing_title?: string | null; listing_photo?: string | null; pricing_unit?: string | null;
   requester?: Party | null; provider?: Party | null;
 };
+
+export type CropIssue = {
+  name: string; kind: "disease" | "pest" | "nutrient_deficiency" | "water_or_weather_stress" | "other";
+  confidence: "high" | "medium" | "low"; severity: "mild" | "moderate" | "severe"; symptoms_seen: string[]; likely_cause: string;
+};
+export type CropDiagnosis = {
+  image_usable: boolean; crop: string; overall_health: "healthy" | "minor_problem" | "needs_attention" | "urgent"; summary: string;
+  issues: CropIssue[]; treatment: { do_now: string[]; organic_options: string[]; chemical_options: string[] };
+  prevention: string[]; better_photos_tips: string[]; see_an_expert: boolean; expert_reason: string;
+};
+export type DoctorStatus = { enabled: boolean; max_images: number; max_per_hour: number; languages: string[] };
+

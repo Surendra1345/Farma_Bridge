@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from api import user, user_role, farmer, storage_listing, machine_listing, buyer
-from api import order, booking, review, user_report, payment_transaction, admin
+from api import order, booking, review, user_report, payment_transaction, admin, crop_doctor
 from config.database import Base, DATABASE_URL, engine
 
 # Interactive API docs are handy in development; hide them when APP_ENV=production.
@@ -46,3 +46,4 @@ app.include_router(review.router)
 app.include_router(user_report.router)
 app.include_router(payment_transaction.router)
 app.include_router(admin.router)
+app.include_router(crop_doctor.router)

@@ -32,3 +32,16 @@ def limit(name: str, max_calls: int, per_seconds: int = 600):
         q.append(now)
 
     return dependency
+
+
+def check_quota(key: str, max_calls: int, per_seconds: int = 3600) -> None:
+    """Per-key quota (e.g. one signed-in user) for costly endpoints. Independent of RATE_LIMIT_ENABLED; 0 means unlimited."""
+    if max_calls <= 0:
+        return
+    now = time.monotonic()
+    q = _hits[("quota", key)]
+    while q and now - q[0] > per_seconds:
+        q.popleft()
+    if len(q) >= max_calls:
+        raise HTTPException(429, f"You've reached the limit of {max_calls} checks per hour. Please try again a little later.", headers={"Retry-After": str(per_seconds)})
+    q.append(now)

@@ -4,6 +4,7 @@ import { marketplaceApi } from "./api";
 import type { CropListing } from "./types";
 import { SECTIONS, type Section } from "./sections";
 import { Header } from "./components/Header";
+import { CropDoctorSheet } from "./components/CropDoctor";
 import { Hero } from "./components/Hero";
 import { Filters } from "./components/Filters";
 import { ListingCard } from "./components/ListingCard";
@@ -15,7 +16,7 @@ import { BookSheet, BuySheet, PostSheet, type Bookable, type PostKind } from "./
 import { useAuth } from "./auth";
 import { EmptyState, ErrorState, LoadingCards } from "./components/States";
 
-type Overlay = "auth" | "account" | "menu" | null;
+type Overlay = "auth" | "account" | "menu" | "doctor" | null;
 // What the user is trying to do. Needs a signed-in user, so it waits behind the sign-in sheet.
 type Action = { type: "buy"; crop: CropListing } | { type: "book"; target: Bookable } | { type: "post"; kind: PostKind };
 
@@ -86,10 +87,10 @@ export default function App() {
 
   return (
     <div className="min-h-dvh bg-[#f7f8f3] pb-24 text-slate-900 md:pb-12">
-      <Header section={section} onSection={changeSection} onMenu={() => setOverlay("menu")} onAccount={() => openAccount()} onBell={() => openAccount("requests")} />
+      <Header section={section} onSection={changeSection} onMenu={() => setOverlay("menu")} onAccount={() => openAccount()} onBell={() => openAccount("requests")} onDoctor={() => setOverlay("doctor")} />
 
       <main className="mx-auto max-w-6xl space-y-6 px-5 pt-6 md:px-10">
-        <Hero onStartSelling={requireAuth} />
+        <Hero onStartSelling={requireAuth} onCropDoctor={() => setOverlay("doctor")} />
         <Filters noun={meta.noun} search={search} onSearch={setSearch} showCategories={section === "crops"} category={category} onCategory={setCategory} />
 
         <section aria-labelledby="results-title">
@@ -109,7 +110,8 @@ export default function App() {
       {action?.type === "buy" && <BuySheet crop={action.crop} onClose={() => setAction(null)} onViewOrders={() => { setAction(null); openAccount("purchases"); }} />}
       {action?.type === "book" && <BookSheet target={action.target} onClose={() => setAction(null)} onViewOrders={() => { setAction(null); openAccount("purchases"); }} />}
       {action?.type === "post" && <PostSheet initial={action.kind} onClose={() => setAction(null)} />}
-      {overlay === "menu" && <MenuSheet onClose={() => setOverlay(null)} onSection={changeSection} />}
+      {overlay === "menu" && <MenuSheet onClose={() => setOverlay(null)} onSection={changeSection} onCropDoctor={() => setOverlay("doctor")} />}
+      {overlay === "doctor" && <CropDoctorSheet onClose={() => setOverlay(null)} onNeedSignIn={() => setOverlay("auth")} />}
     </div>
   );
 }
