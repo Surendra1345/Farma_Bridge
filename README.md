@@ -150,7 +150,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (39 tests, incl. `tests/test_hardening.py` and `tests/test_contact_details.py`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (41 tests, incl. `tests/test_hardening.py` and `tests/test_contact_details.py`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |
@@ -184,7 +184,10 @@ sign-in code appears in the backend terminal as
 - **Reviews** must reference a `Completed` order or booking (`context_type` = `order`/`booking`,
   `context_id`) between the reviewer and the reviewed user, once per reviewer per order/booking.
 - **Bookings** cannot start in the past or overlap a `Confirmed` booking of the same listing
-  (checked at request time and again at confirmation). Order confirm/cancel lock the listing row
+  (checked at request time and again at confirmation). One person can't hold two overlapping
+  `Pending`/`Confirmed` requests for the same listing (cancel the first one to change dates).
+  The price is always computed by the server: hour/day/week/month rates from the dates, and
+  per-acre (or other) rates from the `quantity` the requester enters - a client-sent `total_price` is ignored. Order confirm/cancel lock the listing row
   so concurrent requests cannot oversell stock (PostgreSQL).
 - A crop listing with `Pending`/`Confirmed` orders cannot be deleted.
 - `GET /health` is a lightweight liveness check (used by the Docker health check).

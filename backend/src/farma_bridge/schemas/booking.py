@@ -7,7 +7,9 @@ class BookingCreate(BaseModel):
     reference_id: int
     start_date: datetime
     end_date: datetime
-    total_price: float = Field(default=1, gt=0)  # ignored for hourly/daily/weekly/monthly units
+    # Needed for non-time units such as "Per Acre" (how many acres). Ignored for hour/day/week/month.
+    quantity: float | None = Field(default=None, gt=0)
+    total_price: float | None = None  # ignored: the server always computes the price
 
 
 class BookingStatusUpdate(BaseModel):

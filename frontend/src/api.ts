@@ -67,8 +67,8 @@ export const tradeApi = {
   setOrderStatus: (id: number, status: string) => send<Order>("PATCH", `/orders/${id}/status`, { status }),
   setBookingStatus: (id: number, status: string) => send<Booking>("PATCH", `/bookings/${id}/status`, { status }),
   placeOrder: (listing_id: number, quantity_ordered: number) => send<Order>("POST", "/orders", { listing_id, quantity_ordered }),
-  book: (booking_type: "machine" | "storage", reference_id: number, start_date: string, end_date: string) =>
-    send<Booking>("POST", "/bookings", { booking_type, reference_id, start_date, end_date }),
+  book: (booking_type: "machine" | "storage", reference_id: number, start_date: string, end_date: string, quantity?: number) =>
+    send<Booking>("POST", "/bookings", { booking_type, reference_id, start_date, end_date, ...(quantity ? { quantity } : {}) }),
   postCrop: (f: Fields) => upload<CropListing>("/crop-listings", f),
   postMachine: (f: Fields) => upload<MachineListing>("/machine-listings", f),
   postStorage: (f: Fields) => upload<StorageListing>("/storage-listings", f),
