@@ -89,7 +89,8 @@ class UserService:
             if other and other.id != user.id:
                 raise HTTPException(400, "That phone number is already used by another account")
         for field, value in changes.items():
-            setattr(user, field, value.strip() if isinstance(value, str) else value)
+            value = value.strip() if isinstance(value, str) else value
+            setattr(user, field, (value or None) if field == "upi_id" else value)
         try:
             return self.repo.update(user)
         except IntegrityError:

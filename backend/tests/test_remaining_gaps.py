@@ -11,7 +11,7 @@ _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/g.db"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["JWT_SECRET"] = "test-secret-test-secret-test-secret-123456"
-os.environ["ADMIN_EMAILS"] = "boss@example.com"
+os.environ["ADMIN_EMAILS"] = ",".join(filter(None, [os.environ.get("ADMIN_EMAILS"), "boss@example.com"]))
 
 from fastapi.testclient import TestClient  # noqa: E402
 

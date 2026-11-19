@@ -16,11 +16,11 @@ from schemas.order import OrderResponse
 SHARE_PHONE_STATUSES = {"Pending", "Confirmed", "Completed"}
 
 
-def _party(db: Session, user_id: int, share_phone: bool) -> Party | None:
+def _party(db: Session, user_id: int, share_phone: bool, share_upi: bool = False) -> Party | None:
     user = db.get(User, user_id)
     if not user:
         return None
-    return Party(id=user.id, name=user.name, location=user.location, phone_number=user.phone_number if share_phone else None, trust_score=user.trust_score)
+    return Party(id=user.id, name=user.name, location=user.location, phone_number=user.phone_number if share_phone else None, trust_score=user.trust_score, upi_id=user.upi_id if share_upi else None)
 
 
 def order_view(db: Session, order: Order) -> OrderView:
@@ -31,7 +31,8 @@ def order_view(db: Session, order: Order) -> OrderView:
         view.listing_title, view.listing_photo = listing.crop_name, listing.post_cultivation_photo
         view.unit, view.price_per_unit = listing.unit, listing.price_per_kg
     share = order.status in SHARE_PHONE_STATUSES
-    view.buyer, view.farmer = _party(db, order.buyer_id, share), _party(db, order.farmer_id, share)
+    pay_ok = order.status in {"Confirmed", "Completed"}
+    view.buyer, view.farmer = _party(db, order.buyer_id, share), _party(db, order.farmer_id, share, pay_ok)
     return view
 
 
@@ -48,5 +49,6 @@ def booking_view(db: Session, booking: Booking) -> BookingView:
     if listing:
         view.pricing_unit = listing.pricing_unit
     share = booking.status in SHARE_PHONE_STATUSES
-    view.requester, view.provider = _party(db, booking.requester_id, share), _party(db, booking.provider_id, share)
+    pay_ok = booking.status in {"Confirmed", "Completed"}
+    view.requester, view.provider = _party(db, booking.requester_id, share), _party(db, booking.provider_id, share, pay_ok)
     return view

@@ -1,5 +1,5 @@
 import type {
-  AuthResponse, Booking, CropListing, MachineListing, Order, PaymentAction, PaymentMethod, RegisterInput, Review, Role, StorageListing, User,
+  AuthResponse, Booking, CropListing, MachineListing, AdminUser, Order, PaymentAction, PaymentMethod, RegisterInput, Review, UserReport, Role, StorageListing, User,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
@@ -65,7 +65,7 @@ export const authApi = {
   addRole: (role_type: Role) => send<unknown>("POST", "/users/me/roles", { role_type }),
   removeRole: (role_type: Role) => request<void>(`/users/me/roles/${role_type}`, { method: "DELETE" }),
   deleteAccount: () => request<void>("/users/me", { method: "DELETE" }),
-  updateProfile: (changes: Partial<Pick<User, "name" | "phone_number" | "address" | "location">>) => send<User>("PATCH", "/users/me", changes),
+  updateProfile: (changes: Partial<Pick<User, "name" | "phone_number" | "address" | "location" | "upi_id">>) => send<User>("PATCH", "/users/me", changes),
 };
 
 export const tradeApi = {
@@ -91,7 +91,20 @@ export const tradeApi = {
     request<void>(`/${kind}-listings/${id}`, { method: "DELETE" }),
 };
 
+export const adminApi = {
+  users: (search: string) => get<AdminUser[]>(`/admin/users?limit=100${search ? `&search=${encodeURIComponent(search)}` : ""}`),
+  setActive: (id: number, active: boolean) => send<AdminUser>("PATCH", `/admin/users/${id}/active`, { active }),
+  reports: (status: string) => get<UserReport[]>(`/user-reports?status=${encodeURIComponent(status)}`),
+  resolveReport: (id: number, status: "Resolved" | "Dismissed", action_taken: string) => send<UserReport>("PATCH", `/user-reports/${id}/resolve`, { status, action_taken }),
+};
+
+export const reportApi = {
+  create: (r: { reported_user_id: number; reason: string; description?: string }) => send<UserReport>("POST", "/user-reports", r),
+};
+
 export const reviewApi = {
+  update: (id: number, r: { rating?: number; comment?: string | null }) => send<Review>("PATCH", `/reviews/${id}`, r),
+  remove: (id: number) => request<void>(`/reviews/${id}`, { method: "DELETE" }),
   mine: (reviewer_id: number) => get<Review[]>(`/reviews?reviewer_id=${reviewer_id}`),
   create: (r: { reviewed_user_id: number; rating: number; comment?: string; context_type: "order" | "booking"; context_id: number }) =>
     send<Review>("POST", "/reviews", r),

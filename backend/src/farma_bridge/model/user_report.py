@@ -20,4 +20,12 @@ class UserReport(Base):
 
     reporter: Mapped["User"] = relationship(back_populates="reports_filed", foreign_keys=[reporter_id])
     reported_user: Mapped["User"] = relationship(back_populates="reports_received", foreign_keys=[reported_user_id])
+    @property
+    def reporter_name(self) -> str | None:
+        return self.reporter.name if self.reporter else None
+
+    @property
+    def reported_user_name(self) -> str | None:
+        return self.reported_user.name if self.reported_user else None
+
     resolver: Mapped["User | None"] = relationship(back_populates="reports_resolved", foreign_keys=[resolved_by])
