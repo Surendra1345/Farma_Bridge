@@ -6,7 +6,7 @@ from schemas.order import OrderResponse
 
 
 class Party(BaseModel):
-    """The other person in a deal. Phone is shared only once the deal is confirmed."""
+    """A person in a deal. Phone is shared with both sides while the deal is Pending/Confirmed/Completed."""
     id: int
     name: str
     location: str

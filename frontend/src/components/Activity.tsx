@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Inbox, Phone, ShoppingBag } from "lucide-react";
+import { CalendarDays, Inbox, MessageCircle, Phone, ShoppingBag } from "lucide-react";
 import { mediaUrl, tradeApi } from "../api";
 import { useAuth } from "../auth";
 import type { Booking, Order, Party } from "../types";
@@ -20,6 +20,8 @@ const STATUS_STYLE: Record<string, string> = {
 /** The API stores UTC without a zone suffix ("2026-11-05T07:07:00"); read it as UTC, show local time. */
 const asUtc = (iso: string) => new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`);
 const fmtDate = (iso: string) => asUtc(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+/** wa.me needs digits only with the country code; the app stores 10-digit Indian numbers. */
+const waNumber = (phone: string) => { const d = phone.replace(/\D/g, ""); return d.length === 10 ? `91${d}` : d; };
 const money = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
 function orderItem(o: Order, mine: boolean): Item {
@@ -124,9 +126,14 @@ export function ActivityList({ side }: { side: "mine" | "incoming" }) {
                   {item.other && (
                     <p className="mt-1 text-sm text-slate-700">
                       {item.otherRole}: <b>{item.other.name}</b> · {item.other.location}
-                      {item.other.phone_number
-                        ? <a href={`tel:${item.other.phone_number}`} className="ml-2 inline-flex items-center gap-1 font-semibold text-[#1d5a2b] underline"><Phone size={13} />{item.other.phone_number}</a>
-                        : item.status === "Pending" && <span className="ml-1 text-xs text-slate-500">(phone shared once accepted)</span>}
+                    </p>
+                  )}
+                  {item.other?.phone_number && (
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                      <a href={`tel:${item.other.phone_number}`} className="inline-flex items-center gap-1 rounded-lg border border-[#1d5a2b] px-2.5 py-1 font-semibold text-[#1d5a2b]"><Phone size={13} />Call {item.other.phone_number}</a>
+                      <a href={`https://wa.me/${waNumber(item.other.phone_number)}?text=${encodeURIComponent(`Hi ${item.other.name}, about your ${item.title} on Farma Bridge (${item.label.toLowerCase()}, ${item.status}).`)}`}
+                        target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-[#25D366] px-2.5 py-1 font-semibold text-white"><MessageCircle size={13} />WhatsApp</a>
+                      {item.status === "Pending" && <span className="text-xs text-slate-500">Talk first, then {side === "incoming" ? "accept" : "wait for acceptance"}.</span>}
                     </p>
                   )}
                   <p className="text-xs text-slate-400">{item.when}</p>

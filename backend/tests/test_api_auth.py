@@ -233,19 +233,20 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
 
     # -- my orders / incoming requests
-    def test_orders_show_listing_and_people_and_phone_only_after_confirm(self):
+    def test_orders_show_listing_and_people_and_phones_while_pending(self):
         farmer_h, farmer, _ = self.user(["farmer"], "Grower Gopal"); buyer_h, buyer, _ = self.user(["buyer"], "Buyer Bala")
         crop = self.c.post("/crop-listings", headers=farmer_h, data=dict(crop_name="Brinjal", category="Vegetables", quantity=40, unit="kg", price_per_kg=20, location="G"),
                            files={"post_cultivation_photo": ("a.png", png(), "image/png")}).json()
         self.c.post("/orders", headers=buyer_h, json=dict(listing_id=crop["id"], quantity_ordered=4))
         mine = self.c.get("/orders", headers=buyer_h).json()[0]
         self.assertEqual((mine["listing_title"], mine["farmer"]["name"], mine["buyer"]["name"]), ("Brinjal", "Grower Gopal", "Buyer Bala"))
-        self.assertIsNone(mine["farmer"]["phone_number"])            # pending: no phone yet
+        self.assertEqual(mine["farmer"]["phone_number"], farmer["phone_number"])   # pending: phones already visible so they can talk first
         incoming = self.c.get("/orders", headers=farmer_h).json()[0]
         self.assertEqual(incoming["buyer"]["name"], "Buyer Bala")
+        self.assertEqual(incoming["buyer"]["phone_number"], buyer["phone_number"])
         done = self.c.patch(f"/orders/{incoming['order_id']}/status", headers=farmer_h, json=dict(status="Confirmed")).json()
         self.assertEqual(done["status"], "Confirmed")
-        self.assertEqual(done["buyer"]["phone_number"], buyer["phone_number"])   # confirmed: contact shared
+        self.assertEqual(done["buyer"]["phone_number"], buyer["phone_number"])   # still shared once confirmed
         self.assertEqual(self.c.get("/orders", headers=buyer_h).json()[0]["farmer"]["phone_number"], farmer["phone_number"])
 
     def test_bookings_show_listing_and_people(self):
