@@ -18,7 +18,7 @@ dependencies = [
     "sqlalchemy>=2.0.52",
     "uvicorn>=0.52.4",
     "pillow>=10.4",
-    "anthropic>=1.0",
+    "groq>=1.7.0",
 ]
 
 [dependency-groups]

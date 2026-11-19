@@ -20,16 +20,23 @@ code) unlocks selling, buying and booking.
 | **Machinery owner** | Post machines for rent, confirm bookings |
 | **Storage owner** | Post storage space, confirm bookings |
 
-**Crop Doctor (AI).** Tap **Crop Doctor** on the home page, menu or header, add 1-4 photos of a sick plant (camera or gallery),
-optionally name the crop and describe what you saw, and pick **English, తెలుగు or हिन्दी**. Claude looks at the photos and answers
-with: what looks wrong (disease, pest, nutrient or water stress) with confidence and severity, why it happens, what to do now, organic
-and chemical options (active ingredients only, never doses), how to prevent it, and when to see an agriculture officer or Krishi
-Vigyan Kendra. If the photos are unclear it says so and asks for better ones. The result can be shared on WhatsApp. Photos are
-shrunk, stripped of camera/GPS data, sent to the AI for that one check and **never saved**. It is guidance from photos, not a lab test.
-Setup: put `ANTHROPIC_API_KEY` in `.env` (see `.env.example`) and `docker compose up -d`; without a key the feature shows a friendly
-"not switched on yet" message and nothing else changes. `CROP_DOCTOR_MODEL` picks the Claude model (default `claude-opus-5-5`; a
-cheaper one such as `claude-sonnet-5-5` also works) and `CROP_DOCTOR_PER_HOUR` limits checks per signed-in user (default 10, 0 = no
-limit) so a bill can't run away.
+**Crop Doctor (AI).** Tap **Crop Doctor** on the home page, menu or header, add up to 3 photos of a sick plant (camera or gallery),
+optionally name the crop and describe what you saw, and pick **English, తెలుగు or हिन्दी**. A vision AI model running on
+[Groq](https://groq.com) looks at the photos and answers with: what looks wrong (disease, pest, nutrient or water stress) with
+confidence and severity, why it happens, what to do now, organic and chemical options (active ingredients only - never doses, mixing rates or spray schedules),
+how to prevent it, and when to see an agriculture officer or Krishi Vigyan Kendra. If the photos are unclear it says so and asks
+for better ones. The result can be shared on WhatsApp. Photos are shrunk, stripped of camera/GPS data and sent to Groq for that one
+check; Farma Bridge **never saves them**. It is guidance from photos, not a lab test - a general-purpose AI model can be wrong, so
+the app always points serious cases to an agriculture officer. The "no doses" rule is written into the AI's instructions *and* enforced
+after the fact: if the model slips and writes an amount ("5 ml per litre", "every 7 days", "0.3% solution"), the app removes it and tells the
+farmer to use the dose on the product label.
+
+Setup: create a key at <https://console.groq.com>, put it in `.env` as `GROQ_API_KEY=...` (see `.env.example`) and run
+`docker compose up --build -d`. Without a key the feature shows a friendly "not switched on yet" message and nothing else changes.
+Settings: `CROP_DOCTOR_MODEL` (default `qwen/qwen3.8-27b`) and `CROP_DOCTOR_MAX_IMAGES` (default 3, the limit Groq documents for it)
+- Groq's vision models are currently *preview* models that can change or be retired, so check
+<https://console.groq.com/docs/vision> and update these two values if needed; `CROP_DOCTOR_PER_HOUR` limits checks per signed-in
+user (default 10, 0 = no limit) so usage costs can't run away.
 
 **Ask first.** On every crop, machinery and storage card, signed-in visitors see **WhatsApp** and **Call**
 buttons for the owner (WhatsApp opens a chat pre-filled with the listing name), so you can ask "is it still
@@ -180,7 +187,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (77 tests, see `backend/tests/`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (84 tests, see `backend/tests/`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |

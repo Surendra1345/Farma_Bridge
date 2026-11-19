@@ -149,7 +149,7 @@ export function CropDoctorSheet({ onClose, onNeedSignIn }: { onClose: () => void
       <div className="mt-5">
         {status.isLoading && <p className="text-slate-500">Loading…</p>}
         {status.data && !status.data.enabled && (
-          <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Crop Doctor isn't switched on yet. The site owner needs to add an Anthropic API key (see the README), then it will work here.</p>
+          <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Crop Doctor isn't switched on yet. The site owner needs to add a Groq API key (see the README), then it will work here.</p>
         )}
         {status.data?.enabled && !user && (
           <div className="rounded-xl bg-slate-50 p-4 text-center">
@@ -191,7 +191,7 @@ export function CropDoctorSheet({ onClose, onNeedSignIn }: { onClose: () => void
             <button className={primary} disabled={busy || photos.length === 0} onClick={submit}>
               {busy ? <><Loader2 className="animate-spin" size={18} />Looking at your plant… (about 20-40 seconds)</> : <><CheckCircle2 size={18} />Check my crop</>}
             </button>
-            <p className="text-center text-xs text-slate-500">Photos are used only for this check and are not saved. Up to {status.data.max_per_hour} checks per hour.</p>
+            <p className="text-center text-xs text-slate-500">Photos are sent to an AI service (Groq) for this one check and are not saved by Farma Bridge. Up to {status.data.max_per_hour} checks per hour.</p>
           </div>
         )}
       </div>
