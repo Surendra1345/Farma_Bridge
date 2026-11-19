@@ -91,18 +91,28 @@ class FarmerService:
         changes = payload.copy()
         if "status" in changes and changes["status"] not in VALID_STATUSES:
             raise HTTPException(400, f"status must be one of {sorted(VALID_STATUSES)}")
+        old_photos = []
         if post_cultivation_photo:
+            old_photos.append(listing.post_cultivation_photo)
             changes["post_cultivation_photo"] = await self.upload_service.save_image(post_cultivation_photo)
         if pre_cultivation_photo:
+            old_photos.append(listing.pre_cultivation_photo)
             changes["pre_cultivation_photo"] = await self.upload_service.save_image(pre_cultivation_photo)
         if "quantity" in changes and changes["quantity"] is not None:
             sold = listing.quantity - listing.quantity_remaining
             if changes["quantity"] < sold:
                 raise HTTPException(400, f"Quantity can't be below the {sold:g} {listing.unit} already ordered")
             listing.quantity_remaining = changes["quantity"] - sold
+        if changes.get("expires_at") is None:  # editing a listing renews it (the form doesn't send a date)
+            changes.pop("expires_at", None)
+            days = 5 if (changes.get("category") or listing.category or "").lower() == "perishable" else 30
+            listing.expires_at = datetime.utcnow() + timedelta(days=days)
         for field, value in changes.items():
             setattr(listing, field, value)
-        return self.repo.save(listing)
+        saved = self.repo.save(listing)
+        for old in old_photos:
+            self.upload_service.delete(old)
+        return saved
 
     def update_availability(self, listing_id: int, user_id: int, status: str) -> Farmer:
         if status not in VALID_STATUSES:
@@ -113,12 +123,13 @@ class FarmerService:
 
     def delete(self, listing_id: int, user_id: int) -> None:
         listing = self._get_owned(listing_id, user_id)
-        open_orders = self.repo.db.query(Order).filter(
-            Order.listing_id == listing_id, Order.status.in_(("Pending", "Confirmed"))
-        ).count()
-        if open_orders:
-            raise HTTPException(400, "This listing has open orders. Complete or cancel them before deleting it")
+        if self.repo.db.query(Order).filter(Order.listing_id == listing_id).count():
+            # Orders keep a reference to the listing (history, reviews), so it can't be removed.
+            raise HTTPException(400, "This listing has orders, so it can't be deleted. Mark it as Sold to hide it instead")
+        photos = [listing.post_cultivation_photo, listing.pre_cultivation_photo]
         self.repo.delete(listing)
+        for photo in photos:
+            self.upload_service.delete(photo)
 
     def _get_owned(self, listing_id: int, user_id: int) -> Farmer:
         listing = self.repo.get_by_id(listing_id)

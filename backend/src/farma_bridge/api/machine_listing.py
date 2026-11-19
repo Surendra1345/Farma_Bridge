@@ -14,8 +14,10 @@ def browse_machine_listings(
     machine_type: str | None = Query(None),
     status: str | None = Query(None),
     max_price: int | None = Query(None),
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ):
-    return MachineListingService(db).browse(machine_type=machine_type, status=status, max_price=max_price)
+    return MachineListingService(db).browse(machine_type=machine_type, status=status, max_price=max_price, limit=limit, offset=offset)
 
 
 @router.get("/{listing_id}", response_model=MachineListingResponse)

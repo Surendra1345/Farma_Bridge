@@ -1,7 +1,15 @@
+import io
+import logging
 import os
 import uuid
 from pathlib import Path
+
 from fastapi import HTTPException, UploadFile
+from PIL import Image, ImageOps, UnidentifiedImageError
+
+log = logging.getLogger(__name__)
+MAX_SIDE = 1600           # longest edge after resizing; phone photos are often 4000+ px
+MAX_PIXELS = 40_000_000   # refuse decompression bombs
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_SIZE_MB = 5
@@ -24,6 +32,39 @@ def _sniff_image_type(data: bytes) -> str | None:
 
 
 class UploadService:
+    @staticmethod
+    def _normalise(data: bytes, ext: str) -> bytes:
+        """Decode the image (proves it is one), fix phone rotation, shrink big photos, drop EXIF/GPS metadata."""
+        try:
+            img = Image.open(io.BytesIO(data))
+            if img.width * img.height > MAX_PIXELS:
+                raise HTTPException(400, "Image dimensions are too large")
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail((MAX_SIDE, MAX_SIDE))
+            out = io.BytesIO()
+            if ext == "jpg":
+                img.convert("RGB").save(out, "JPEG", quality=85, optimize=True)
+            elif ext == "png":
+                img.save(out, "PNG", optimize=True)
+            else:
+                img.save(out, "WEBP", quality=85)
+            return out.getvalue()
+        except HTTPException:
+            raise
+        except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+            raise HTTPException(400, "File is not a valid JPEG, PNG, or WEBP image")
+
+    @staticmethod
+    def delete(url: str | None) -> None:
+        """Remove an uploaded file we own (no-op for anything else, e.g. a CDN URL)."""
+        if not url or not url.startswith("/static/uploads/"):
+            return
+        path = (UPLOAD_DIR / Path(url).name)
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            log.warning("Could not delete %s", path)
+
     async def save_image(self, file: UploadFile) -> str:
         if file.content_type not in ALLOWED_TYPES:
             raise HTTPException(400, "Only JPEG, PNG, or WEBP images are allowed")
@@ -37,6 +78,7 @@ class UploadService:
         ext = _sniff_image_type(contents)
         if ext is None or file.content_type not in _TYPES_FOR_EXT[ext]:
             raise HTTPException(400, "File is not a valid JPEG, PNG, or WEBP image")
+        contents = self._normalise(contents, ext)
         filename = f"{uuid.uuid4().hex}.{ext}"
         filepath = UPLOAD_DIR / filename
 

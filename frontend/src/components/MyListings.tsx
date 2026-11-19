@@ -27,7 +27,7 @@ const storageRow = (s: StorageListing): Row => ({ kind: "storage", id: s.listing
 export function MyListings({ onPost }: { onPost: () => void }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const crops = useQuery({ queryKey: ["crops"], queryFn: marketplaceApi.crops });
+  const crops = useQuery({ queryKey: ["crops", "mine"], queryFn: marketplaceApi.cropsAll });
   const machines = useQuery({ queryKey: ["machines"], queryFn: marketplaceApi.machines });
   const storage = useQuery({ queryKey: ["storage"], queryFn: marketplaceApi.storage });
   const [editing, setEditing] = useState<Row | null>(null);

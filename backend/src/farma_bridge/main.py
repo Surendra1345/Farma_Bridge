@@ -8,10 +8,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from api import user, user_role, farmer, storage_listing, machine_listing, buyer
-from api import order, booking, review, user_report, payment_transaction
+from api import order, booking, review, user_report, payment_transaction, admin
 from config.database import Base, DATABASE_URL, engine
 
-app = FastAPI()
+# Interactive API docs are handy in development; hide them when APP_ENV=production.
+_prod = os.getenv("APP_ENV", "development").lower() == "production"
+app = FastAPI(title="Farma Bridge API", docs_url=None if _prod else "/docs", redoc_url=None if _prod else "/redoc", openapi_url=None if _prod else "/openapi.json")
 
 # A fresh local checkout works without PostgreSQL. Production deployments use
 # Alembic (`alembic upgrade head`) and therefore never rely on this shortcut.
@@ -43,3 +45,4 @@ app.include_router(booking.router)
 app.include_router(review.router)
 app.include_router(user_report.router)
 app.include_router(payment_transaction.router)
+app.include_router(admin.router)

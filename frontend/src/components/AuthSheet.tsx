@@ -71,7 +71,7 @@ export function AuthSheet({ onClose, onSuccess }: { onClose: () => void; onSucce
           <input className={input} type="email" required autoFocus placeholder="you@example.com" aria-label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <FormError message={error} />
           <button className={primary} disabled={busy}>{busy && <Loader2 className="animate-spin" size={18} />}Continue with email</button>
-          <p className="text-center text-sm text-slate-500">New to AgriLink?{" "}
+          <p className="text-center text-sm text-slate-500">New to Farma Bridge?{" "}
             <button type="button" className="font-semibold text-[#1d5a2b] underline" onClick={() => { setStep("register"); setError(""); }}>Create an account</button>
           </p>
         </form>

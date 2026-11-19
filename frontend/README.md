@@ -1,4 +1,4 @@
-# AgriLink web app
+# Farma Bridge web app
 
 The customer-facing site for Farma Bridge: browse crops, machinery and storage,
 sign in with an emailed code, then post listings, place orders and request

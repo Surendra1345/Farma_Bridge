@@ -32,6 +32,7 @@ from sqlalchemy import text  # noqa: E402
 
 import main  # noqa: E402
 from config.database import SessionLocal  # noqa: E402
+from model.booking import Booking  # noqa: E402
 from model.user import User  # noqa: E402
 
 DEMO_FILTER = "email LIKE 'demo.%@example.com'"
@@ -193,15 +194,24 @@ class Seeder:
 
         tractor = book("suresh", "machine", self.machine_ids["Mahindra 575 Tractor"], 8, 5)          # 5 h x 900
         self.call("patch", f"/bookings/{tractor}/status", "venkat", json=dict(status="Confirmed"))
-        self.call("patch", f"/bookings/{tractor}/status", "venkat", json=dict(status="Completed"))
+        self.finish(tractor, "venkat")
         self.done_bookings = {"suresh": tractor}
         book("anil", "machine", self.machine_ids["Rotavator"], 9, 3)                                  # pending
         cold = book("anil", "storage", self.storage_ids["Cold Storage (2-8°C)"], 0, 24 * 7)           # 7 days x 120
         self.call("patch", f"/bookings/{cold}/status", "srinivas", json=dict(status="Confirmed"))
-        self.call("patch", f"/bookings/{cold}/status", "srinivas", json=dict(status="Completed"))
+        self.finish(cold, "srinivas")
         self.done_bookings["anil"] = cold
         book("kiran", "storage", self.storage_ids["Dry Warehouse"], 0, 24 * 45)                       # 2 months (ceil)
         print("  bookings       4 (2 completed, 2 pending)")
+
+    def finish(self, booking_id, provider):
+        """A booking can only be completed after it started, so move this demo booking into the past first."""
+        with SessionLocal() as db:
+            row = db.get(Booking, booking_id)
+            row.start_date -= timedelta(days=10)
+            row.end_date -= timedelta(days=10)
+            db.commit()
+        self.call("patch", f"/bookings/{booking_id}/status", provider, json=dict(status="Completed"))
 
     def reviews(self):
         # Reviews must point at a completed order/booking between the two people.

@@ -85,7 +85,9 @@ class StorageListingService:
         for field, value in payload.model_dump(exclude_unset=True, exclude={"verified_badge"}).items():
             setattr(listing, field, value)
         if storage_photo:
+            old = listing.storage_photo
             listing.storage_photo = await self.upload_service.save_image(storage_photo)
+            self.upload_service.delete(old)
         return self.repo.save(listing)
 
     def update_availability(self, listing_id: int, owner_id: int, availability_indicator: str) -> StorageListing:
@@ -98,7 +100,9 @@ class StorageListingService:
 
     def delete(self, listing_id: int, owner_id: int) -> None:
         listing = self._get_owned(listing_id, owner_id)
+        photo = listing.storage_photo
         self.repo.delete(listing)
+        self.upload_service.delete(photo)
 
     def _get_owned(self, listing_id: int, owner_id: int) -> StorageListing:
         listing = self.repo.get_by_id(listing_id)

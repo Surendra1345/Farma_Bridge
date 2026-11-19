@@ -13,6 +13,7 @@ from unittest import mock
 
 _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/test.db"   # must be set before the app is imported
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["JWT_SECRET"] = "test-secret-test-secret-test-secret-123456"
 os.environ["ADMIN_EMAILS"] = "admin@example.com"
 

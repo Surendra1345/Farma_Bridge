@@ -1,4 +1,4 @@
-# Farma Bridge (AgriLink)
+# Farma Bridge
 
 A local agriculture marketplace that connects farmers, buyers, machinery owners
 and storage providers. Anyone can browse; signing in (with an emailed one-time
@@ -150,7 +150,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (46 tests, incl. `tests/test_hardening.py`, `tests/test_contact_details.py` and `tests/test_input_validation.py`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (55 tests, see `backend/tests/`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |
@@ -198,10 +198,31 @@ sign-in code appears in the backend terminal as
   booking only blocks *those dates*; `Available`/`Booked` on a machine is the owner's manual switch.
 - **Reviews in the app:** a completed order/booking shows a **Rate** button (1-5 stars + comment) to
   both people; their average rating appears next to their name on orders and bookings.
+- **One pending order per buyer per listing**, and orders are rejected on expired listings. Expired
+  crop listings disappear from the marketplace (owners still see them under My listings; editing one
+  renews it). A listing that has any orders can't be deleted - mark it `Sold` instead.
+- **Bookings can only be completed once they have started**, so a review can't be farmed by
+  completing a booking early.
+- **Reviews:** the reviewer can change or delete their own review for 7 days
+  (`PATCH`/`DELETE /reviews/{id}`); the reviewed person's average rating follows.
+- **Admin:** people listed in `ADMIN_EMAILS` can search users (`GET /admin/users?search=`) and
+  suspend/reinstate them (`PATCH /admin/users/{id}/active`); a suspended user's token stops working at once.
+- **Delete account:** Account > Profile > *Delete my account* (`DELETE /users/me`) erases the name, phone and
+  email and takes the person's listings off the market; blocked while orders/bookings are open.
+- **Notifications:** the bell shows how many requests are waiting for your answer. With
+  `NOTIFY_EMAIL_ENABLED=true` (and SMTP set up) owners are also emailed about new orders/bookings and status
+  changes. Off by default so dev/test never sends mail.
+- **Rate limits:** `register` 10, `send-otp` 15 and `verify-otp` 30 calls per IP per 10 minutes
+  (in-memory, per process; `RATE_LIMIT_ENABLED=false` disables it).
+- **Uploads** are decoded, auto-rotated, shrunk to at most 1600 px and stripped of EXIF/GPS data;
+  replaced or deleted photos are removed from disk.
+- **Pagination:** list endpoints accept `limit` (1-200, default 100) and `offset`.
+- `/docs` and `/openapi.json` are hidden when `APP_ENV=production`.
 - `OTP_EMAIL_ENABLED` and other settings set in the real environment always win over `.env`, so
   tests and CI can never send real email by accident.
 - `GET /health` is a lightweight liveness check (used by the Docker health check).
   The Docker PostgreSQL port is published on `127.0.0.1` only.
-- Known limits: tokens last 7 days and cannot be revoked; sign-in codes are stored
-  unhashed; there is no per-IP rate limiting yet; `POST /users/send-otp` reveals whether an
-  email is registered (the sign-in screen relies on it); lists are not paginated.
+- Known limits: tokens last 7 days and cannot be revoked (except by suspending the user); sign-in codes
+  are stored unhashed; `POST /users/send-otp` reveals whether an email is registered (the sign-in screen
+  relies on it); rate limiting is per process; there is no in-app chat (use Call/WhatsApp), no payment
+  gateway, no tax invoices and no distance search yet.

@@ -17,9 +17,13 @@ def browse_crop_listings(
     min_price: int | None = Query(None),
     max_price: int | None = Query(None),
     status: str | None = Query(None),
+    include_expired: bool = Query(False, description="Owners use this to find and renew expired listings"),
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ):
     return FarmerService(db).browse(
-        crop_name=crop_name, category=category, min_price=min_price, max_price=max_price, status=status
+        crop_name=crop_name, category=category, min_price=min_price, max_price=max_price, status=status,
+        include_expired=include_expired, limit=limit, offset=offset,
     )
 
 

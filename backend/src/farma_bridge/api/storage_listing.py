@@ -15,9 +15,12 @@ def browse_storage_listings(
     storage_type: str | None = Query(None),
     availability_indicator: str | None = Query(None),
     max_price: int | None = Query(None),
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ):
     return StorageListingService(db).browse(
-        storage_type=storage_type, availability_indicator=availability_indicator, max_price=max_price
+        storage_type=storage_type, availability_indicator=availability_indicator, max_price=max_price,
+        limit=limit, offset=offset,
     )
 
 

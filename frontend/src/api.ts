@@ -51,6 +51,8 @@ const upload = <T,>(path: string, fields: Fields) => sendForm<T>("POST", path, f
 
 export const marketplaceApi = {
   crops: () => get<CropListing[]>("/crop-listings"),
+  /** Owner view: includes expired listings so they can be renewed by editing. */
+  cropsAll: () => get<CropListing[]>("/crop-listings?include_expired=true&limit=200"),
   machines: () => get<MachineListing[]>("/machine-listings"),
   storage: () => get<StorageListing[]>("/storage-listings"),
 };
@@ -61,6 +63,7 @@ export const authApi = {
   register: (input: RegisterInput) => send<User>("POST", "/users/register", input),
   me: () => get<User>("/users/me"),
   addRole: (role_type: Role) => send<unknown>("POST", "/users/me/roles", { role_type }),
+  deleteAccount: () => request<void>("/users/me", { method: "DELETE" }),
   updateProfile: (changes: Partial<Pick<User, "name" | "phone_number" | "address" | "location">>) => send<User>("PATCH", "/users/me", changes),
 };
 

@@ -31,7 +31,14 @@ from service.payment_transaction_service import PaymentTransactionService
 from service.review_service import ReviewService
 from service.upload import UploadService
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 20
+def _make_png(size=(3000, 2000)) -> bytes:
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", size, (20, 140, 40)).save(buf, "PNG")
+    return buf.getvalue()
+
+
+PNG = _make_png()
 
 
 def upload(data: bytes, name: str, ctype: str) -> UploadFile:
@@ -91,6 +98,7 @@ class HardeningTests(unittest.TestCase):
         pending = OrderService(self.db).create(1, OrderCreate(listing_id=1, quantity_ordered=1))
         with self.assertRaises(HTTPException):  # order not completed yet
             reviews.create(1, ReviewCreate(reviewed_user_id=2, rating=5, context_type="order", context_id=pending.order_id))
+        OrderService(self.db).update_status(pending.order_id, 1, "Cancelled")  # one pending order per buyer+listing
         order = self._completed_order()
         with self.assertRaises(HTTPException) as ctx:  # a stranger can't review
             reviews.create(4, ReviewCreate(reviewed_user_id=2, rating=1, context_type="order", context_id=order.order_id))
@@ -155,9 +163,16 @@ class HardeningTests(unittest.TestCase):
             asyncio.run(svc.save_image(upload(b"<script>alert(1)</script>", "x.html", "image/png")))
         with self.assertRaises(HTTPException):  # real PNG but claims to be JPEG
             asyncio.run(svc.save_image(upload(PNG, "x.png", "image/jpeg")))
+        with self.assertRaises(HTTPException):  # right header, garbage body: Pillow can't decode it
+            asyncio.run(svc.save_image(upload(b"\x89PNG\r\n\x1a\n" + b"0" * 20, "x.png", "image/png")))
         url = asyncio.run(svc.save_image(upload(PNG, "evil.html", "image/png")))
         self.assertTrue(url.endswith(".png"))
-        os.remove(os.path.join(os.path.dirname(__file__), "..", url.lstrip("/")))
+        path = os.path.join(os.path.dirname(__file__), "..", url.lstrip("/"))
+        from PIL import Image
+        with Image.open(path) as saved:
+            self.assertLessEqual(max(saved.size), 1600)  # big photos are shrunk
+        svc.delete(url)
+        self.assertFalse(os.path.exists(path))
 
 
 class HealthTests(unittest.TestCase):
