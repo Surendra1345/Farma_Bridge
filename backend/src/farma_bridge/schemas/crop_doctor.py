@@ -2,10 +2,15 @@
 required and uses simple types (strings, booleans, lists, enums)."""
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class CropIssue(BaseModel):
+class Strict(BaseModel):
+    """Every object in the schema gets additionalProperties:false, as strict structured outputs require."""
+    model_config = ConfigDict(extra="forbid")
+
+
+class CropIssue(Strict):
     name: str                      # e.g. "Early blight (Alternaria)"
     kind: Literal["disease", "pest", "nutrient_deficiency", "water_or_weather_stress", "other"]
     confidence: Literal["high", "medium", "low"]
@@ -14,13 +19,13 @@ class CropIssue(BaseModel):
     likely_cause: str              # why it happens, and how it can be told apart from look-alikes
 
 
-class CropTreatment(BaseModel):
+class CropTreatment(Strict):
     do_now: list[str]              # first practical steps (remove infected leaves, drainage, isolate...)
     organic_options: list[str]
     chemical_options: list[str]    # active ingredient / product class only, never doses
 
 
-class CropDiagnosis(BaseModel):
+class CropDiagnosis(Strict):
     image_usable: bool             # false when the photos are not a crop, too blurry or too dark to judge
     crop: str                      # identified crop, or "Unknown"
     overall_health: Literal["healthy", "minor_problem", "needs_attention", "urgent"]

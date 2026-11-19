@@ -1,6 +1,7 @@
-"""Crop Doctor: the Claude call is mocked, so these tests cost nothing and need no API key."""
+"""Crop Doctor on Groq: the API call is mocked, so these tests cost nothing and need no API key."""
 import base64
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -12,8 +13,8 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/d.db"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["JWT_SECRET"] = "test-secret-test-secret-test-secret-123456"
 
-import anthropic  # noqa: E402
-import httpx2  # noqa: E402
+import groq  # noqa: E402
+import httpx  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from PIL import Image  # noqa: E402
 
@@ -54,26 +55,32 @@ def diagnosis(**kw) -> CropDiagnosis:
     return CropDiagnosis(**base)
 
 
-class FakeClient:
-    """Stands in for AsyncAnthropic. `result` is returned (or raised, if it is an exception)."""
-    def __init__(self, result):
-        self.result, self.calls = result, []
-        self.beta = SimpleNamespace(messages=SimpleNamespace(parse=self._parse))
-
-    async def _parse(self, **kwargs):
-        self.calls.append(kwargs)
-        if isinstance(self.result, Exception):
-            raise self.result
-        return self.result
+def reply(content, finish="stop"):
+    return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content), finish_reason=finish)],
+                           usage=SimpleNamespace(prompt_tokens=1200, completion_tokens=600))
 
 
-def reply(parsed=None, stop="end_turn"):
-    return SimpleNamespace(stop_reason=stop, parsed_output=parsed, usage=SimpleNamespace(input_tokens=1200, output_tokens=600))
+def ok_reply(**kw):
+    return reply(diagnosis(**kw).model_dump_json())
 
 
 def err(cls, status):
-    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
-    return cls("boom", response=httpx2.Response(status, request=request), body=None)
+    request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    return cls("boom", response=httpx.Response(status, request=request), body=None)
+
+
+class FakeGroq:
+    """Stands in for AsyncGroq. `results` is a list used one per call (an Exception is raised, anything else returned)."""
+    def __init__(self, *results):
+        self.results, self.calls = list(results), []
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+    async def _create(self, **kwargs):
+        self.calls.append(kwargs)
+        r = self.results.pop(0) if len(self.results) > 1 else self.results[0]
+        if isinstance(r, Exception):
+            raise r
+        return r
 
 
 class CropDoctorTests(unittest.TestCase):
@@ -90,10 +97,10 @@ class CropDoctorTests(unittest.TestCase):
 
     def setUp(self):
         ratelimit.reset()
-        self.env = mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"})
+        self.env = mock.patch.dict(os.environ, {"GROQ_API_KEY": "test-key"})
         self.env.start()
-        os.environ.pop("CROP_DOCTOR_MODEL", None)
-        os.environ.pop("CROP_DOCTOR_PER_HOUR", None)
+        for k in ("CROP_DOCTOR_MODEL", "CROP_DOCTOR_PER_HOUR", "CROP_DOCTOR_MAX_IMAGES"):
+            os.environ.pop(k, None)
 
     def tearDown(self):
         self.env.stop()
@@ -112,97 +119,119 @@ class CropDoctorTests(unittest.TestCase):
     # ---- availability & access
     def test_status_reports_whether_it_is_set_up(self):
         on = self.c.get("/crop-doctor/status").json()
-        self.assertEqual((on["enabled"], on["max_images"], on["languages"]), (True, 4, ["English", "Telugu", "Hindi"]))
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("ANTHROPIC_API_KEY", None); os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
-            self.assertFalse(self.c.get("/crop-doctor/status").json()["enabled"])
+        self.assertEqual((on["enabled"], on["max_images"], on["languages"]), (True, 3, ["English", "Telugu", "Hindi"]))
+        os.environ.pop("GROQ_API_KEY", None)
+        self.assertFalse(self.c.get("/crop-doctor/status").json()["enabled"])
 
     def test_requires_sign_in(self):
         r = self.c.post("/crop-doctor/diagnose", files=[("photos", ("a.jpg", photo(), "image/jpeg"))])
         self.assertEqual(r.status_code, 401)
 
     def test_clear_message_when_no_api_key(self):
-        h = self.user(); fake = FakeClient(reply(diagnosis()))
-        os.environ.pop("ANTHROPIC_API_KEY", None); os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+        h = self.user(); fake = FakeGroq(ok_reply())
+        os.environ.pop("GROQ_API_KEY", None)
         r = self.post(h, fake)
         self.assertEqual(r.status_code, 503)
-        self.assertIn("API key", r.json()["detail"])
+        self.assertIn("Groq API key", r.json()["detail"])
         self.assertEqual(fake.calls, [])
 
-    # ---- input validation (never reaches the paid API)
-    def test_rejects_bad_input_before_calling_claude(self):
-        h = self.user(); fake = FakeClient(reply(diagnosis()))
+    # ---- input validation (never reaches the API)
+    def test_rejects_bad_input_before_calling_the_model(self):
+        h = self.user(); fake = FakeGroq(ok_reply())
         ok = ("photos", ("a.jpg", photo((50, 50)), "image/jpeg"))
-        self.assertEqual(self.post(h, fake, files=[ok] * 5).status_code, 400)                                   # too many
+        self.assertEqual(self.post(h, fake, files=[ok] * 4).status_code, 400)                                   # over the 3-photo limit
         self.assertEqual(self.post(h, fake, language="Klingon").status_code, 400)
-        self.assertEqual(self.post(h, fake, files=[("photos", ("x.png", b"<script>alert(1)</script>", "image/png"))]).status_code, 400)  # not an image
-        self.assertEqual(self.post(h, fake, files=[("photos", ("x.jpg", b"", "image/jpeg"))]).status_code, 400)       # empty
-        self.assertEqual(self.post(h, fake, files=[("photos", ("x.gif", b"GIF89a", "image/gif"))]).status_code, 400)  # wrong type
-        self.assertEqual(self.post(h, fake, notes="x" * 601).status_code, 422)                                  # notes too long
+        self.assertEqual(self.post(h, fake, files=[("photos", ("x.png", b"<script>alert(1)</script>", "image/png"))]).status_code, 400)
+        self.assertEqual(self.post(h, fake, files=[("photos", ("x.jpg", b"", "image/jpeg"))]).status_code, 400)
+        self.assertEqual(self.post(h, fake, files=[("photos", ("x.gif", b"GIF89a", "image/gif"))]).status_code, 400)
+        self.assertEqual(self.post(h, fake, notes="x" * 601).status_code, 422)
         self.assertEqual(fake.calls, [])
 
-    # ---- the request sent to Claude
+    def test_photo_limit_can_be_raised_for_models_that_allow_more(self):
+        h = self.user(); fake = FakeGroq(ok_reply())
+        os.environ["CROP_DOCTOR_MAX_IMAGES"] = "5"
+        ok = ("photos", ("a.jpg", photo((50, 50)), "image/jpeg"))
+        self.assertEqual(self.post(h, fake, files=[ok] * 5).status_code, 200)
+        self.assertEqual(self.c.get("/crop-doctor/status").json()["max_images"], 5)
+
+    # ---- the request sent to Groq
     def test_sends_clean_images_and_the_right_options(self):
-        h = self.user(); fake = FakeClient(reply(diagnosis()))
+        h = self.user(); fake = FakeGroq(ok_reply())
         files = [("photos", ("a.jpg", photo(exif=True), "image/jpeg")), ("photos", ("b.jpg", photo((800, 600)), "image/jpeg"))]
         r = self.post(h, fake, files=files, crop_name="Tomato", notes="Spots started 4 days ago after rain", language="Telugu")
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["issues"][0]["name"], "Early blight")
         call = fake.calls[0]
-        self.assertEqual(call["model"], "claude-opus-5-5")
-        self.assertIs(call["output_format"], CropDiagnosis)
-        self.assertEqual(call["fallbacks"], "default")
-        self.assertIn("server-side-fallback-2026-07-01", call["betas"])
-        self.assertEqual(call["output_config"], {"effort": "medium"})
-        self.assertIn("India", call["system"])
-        blocks = call["messages"][0]["content"]
-        images = [b for b in blocks if b["type"] == "image"]
+        self.assertEqual(call["model"], "qwen/qwen3.8-27b")
+        self.assertEqual(call["response_format"]["type"], "json_schema")
+        self.assertTrue(call["response_format"]["json_schema"]["strict"])
+        self.assertIs(call["response_format"]["json_schema"]["schema"]["additionalProperties"], False)
+        system, user = call["messages"]
+        self.assertEqual(system["role"], "system"); self.assertIn("India", system["content"])
+        images = [b for b in user["content"] if b["type"] == "image_url"]
         self.assertEqual(len(images), 2)
         for b in images:
-            self.assertEqual(b["source"]["media_type"], "image/jpeg")
-            img = Image.open(io.BytesIO(base64.b64decode(b["source"]["data"])))
+            url = b["image_url"]["url"]
+            self.assertTrue(url.startswith("data:image/jpeg;base64,"))
+            img = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1])))
             self.assertLessEqual(max(img.size), 1600)                  # shrunk
             self.assertEqual(len(img.getexif()), 0)                    # camera/GPS metadata stripped before it leaves the server
-        text = blocks[-1]["text"]
+        text = user["content"][-1]["text"]
         self.assertIn("Telugu", text); self.assertIn("Tomato", text); self.assertIn("after rain", text)
 
     def test_model_can_be_changed_by_env(self):
-        h = self.user(); fake = FakeClient(reply(diagnosis()))
-        os.environ["CROP_DOCTOR_MODEL"] = "claude-sonnet-5-5"
+        h = self.user(); fake = FakeGroq(ok_reply())
+        os.environ["CROP_DOCTOR_MODEL"] = "some/other-vision-model"
         self.assertEqual(self.post(h, fake).status_code, 200)
-        self.assertEqual(fake.calls[0]["model"], "claude-sonnet-5-5")
+        self.assertEqual(fake.calls[0]["model"], "some/other-vision-model")
 
-    # ---- results & failures
+    # ---- output handling
+    def test_falls_back_to_plain_json_mode_when_schema_mode_is_rejected(self):
+        h = self.user(); fake = FakeGroq(err(groq.BadRequestError, 400), ok_reply())
+        r = self.post(h, fake)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual([c["response_format"]["type"] for c in fake.calls], ["json_schema", "json_object"])
+        self.assertIn("JSON Schema", fake.calls[1]["messages"][0]["content"])   # the shape is spelled out when the API can't enforce it
+
+    def test_reasoning_tags_and_code_fences_are_tolerated(self):
+        h = self.user()
+        wrapped = "<think>Looks like blight, let me check...</think>\n```json\n" + diagnosis().model_dump_json() + "\n```"
+        self.assertEqual(self.post(h, FakeGroq(reply(wrapped))).status_code, 200)
+
+    def test_invalid_answer_retries_once_then_fails_politely(self):
+        h = self.user()
+        fake = FakeGroq(reply("not json"), ok_reply())
+        self.assertEqual(self.post(h, fake).status_code, 200)                       # second try succeeds
+        bad = FakeGroq(reply('{"crop": "Tomato"}'))                                  # valid JSON, wrong shape, both times
+        r = self.post(h, bad)
+        self.assertEqual(r.status_code, 502); self.assertEqual(len(bad.calls), 2)
+        self.assertEqual(self.post(h, FakeGroq(reply(diagnosis().model_dump_json(), "length"))).status_code, 502)   # cut off
+
     def test_unusable_photo_result_is_passed_through(self):
         h = self.user()
-        r = self.post(h, FakeClient(reply(diagnosis(image_usable=False, crop="Unknown", issues=[], better_photos_tips=["Take a close-up of one leaf in daylight"]))))
+        r = self.post(h, FakeGroq(ok_reply(image_usable=False, crop="Unknown", issues=[], better_photos_tips=["Take a close-up of one leaf in daylight"])))
         self.assertEqual(r.status_code, 200)
-        self.assertFalse(r.json()["image_usable"])
-        self.assertTrue(r.json()["better_photos_tips"])
-
-    def test_refusal_and_unusable_responses_become_friendly_errors(self):
-        h = self.user()
-        self.assertEqual(self.post(h, FakeClient(reply(None, "refusal"))).status_code, 422)
-        self.assertEqual(self.post(h, FakeClient(reply(None, "max_tokens"))).status_code, 502)
-        self.assertEqual(self.post(h, FakeClient(reply(None, "end_turn"))).status_code, 502)
+        self.assertFalse(r.json()["image_usable"]); self.assertTrue(r.json()["better_photos_tips"])
 
     def test_api_errors_are_mapped_not_leaked(self):
         h = self.user()
-        cases = [(err(anthropic.AuthenticationError, 401), 503), (err(anthropic.RateLimitError, 429), 429),
-                 (anthropic.APIConnectionError(request=httpx2.Request("POST", "https://x")), 503),
-                 (err(anthropic.InternalServerError, 500), 502), (err(anthropic.BadRequestError, 400), 502)]
+        cases = [(err(groq.AuthenticationError, 401), 503), (err(groq.RateLimitError, 429), 429),
+                 (groq.APIConnectionError(request=httpx.Request("POST", "https://x")), 503),
+                 (err(groq.InternalServerError, 500), 502)]
         for exc, expected in cases:
-            r = self.post(h, FakeClient(exc))
+            r = self.post(h, FakeGroq(exc))
             self.assertEqual(r.status_code, expected, (type(exc).__name__, r.text))
             self.assertNotIn("boom", r.text)                           # raw SDK/API messages never reach the farmer
+        both = FakeGroq(err(groq.BadRequestError, 400))                # rejected in both modes
+        self.assertEqual(self.post(h, both).status_code, 502); self.assertEqual(len(both.calls), 2)
 
     # ---- cost control
     def test_hourly_quota_per_user(self):
-        a, b = self.user(), self.user(); fake = FakeClient(reply(diagnosis()))
+        a, b = self.user(), self.user(); fake = FakeGroq(ok_reply())
         os.environ["CROP_DOCTOR_PER_HOUR"] = "2"
         self.assertEqual([self.post(a, fake).status_code for _ in range(3)], [200, 200, 429])
         self.assertEqual(self.post(b, fake).status_code, 200)         # another farmer is unaffected
-        self.assertEqual(len(fake.calls), 3)                          # the blocked request never reached Claude
+        self.assertEqual(len(fake.calls), 3)                          # the blocked request never reached the model
 
 
 if __name__ == "__main__":
