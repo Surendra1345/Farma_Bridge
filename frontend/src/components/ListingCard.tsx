@@ -1,4 +1,4 @@
-import { MapPin, type LucideIcon } from "lucide-react";
+import { MapPin, MessageCircle, Phone, type LucideIcon } from "lucide-react";
 import { mediaUrl } from "../api";
 
 type Props = {
@@ -8,10 +8,14 @@ type Props = {
   own?: boolean; onManage?: () => void;
   /** Set when the listing can't be booked/bought right now; shown on a disabled button. */
   unavailable?: string;
+  /** Owner contact so people can ask a question before ordering. `phone` is only present for signed-in viewers. */
+  contact?: { name?: string | null; phone?: string | null; what: string; onNeedSignIn: () => void };
 };
 
-export function ListingCard({ title, subtitle, location, price, priceUnit, image, fallbackIcon: Icon, badge, actionLabel, onAction, own, onManage, unavailable }: Props) {
+export function ListingCard({ title, subtitle, location, price, priceUnit, image, fallbackIcon: Icon, badge, actionLabel, onAction, own, onManage, unavailable, contact }: Props) {
   const src = mediaUrl(image);
+  const digits = contact?.phone?.replace(/\D/g, "") ?? "";
+  const wa = digits ? `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}?text=${encodeURIComponent(`Hi${contact?.name ? ` ${contact.name}` : ""}, I saw your ${contact?.what} on Farma Bridge. Is it still available?`)}` : null;
   return (
     <article className="flex flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm transition hover:shadow-md">
       <div className="relative aspect-[16/10] bg-gradient-to-br from-[#e3efd5] to-[#bfd6a0]">
@@ -30,6 +34,18 @@ export function ListingCard({ title, subtitle, location, price, priceUnit, image
           <p className="shrink-0 text-right text-lg font-extrabold leading-tight text-[#d8731c]">{price}<span className="block text-xs font-medium text-slate-500">{priceUnit}</span></p>
         </div>
         <p className="mb-5 mt-3 flex items-center gap-1.5 text-sm text-slate-600"><MapPin size={16} className="shrink-0" /><span className="truncate">{location}</span></p>
+        {!own && contact && (
+          <div className="mb-3 flex gap-2">
+            {wa ? (
+              <>
+                <a href={wa} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] py-2 text-sm font-bold text-white"><MessageCircle size={16} />WhatsApp</a>
+                <a href={`tel:${contact.phone}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#1d5a2b] py-2 text-sm font-bold text-[#1d5a2b]"><Phone size={16} />Call</a>
+              </>
+            ) : (
+              <button onClick={contact.onNeedSignIn} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-300 py-2 text-sm font-semibold text-slate-600"><MessageCircle size={16} />Sign in to chat or call</button>
+            )}
+          </div>
+        )}
         {own
           ? <button onClick={onManage} className="mt-auto w-full rounded-xl border border-[#1d5a2b] py-3 text-sm font-bold text-[#1d5a2b] transition hover:bg-[#eaf4e5]">Manage my listing</button>
           : unavailable

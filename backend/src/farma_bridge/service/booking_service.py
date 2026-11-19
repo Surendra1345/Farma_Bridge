@@ -9,6 +9,7 @@ from repositories.machine_listing_repo import MachineListingRepository
 from repositories.storage_listing_repo import StorageListingRepository
 from schemas.booking import BookingCreate
 from service.notify import notify_user
+from service.payment_tracking import PaymentAction, apply_payment_action
 from service.user_role_service import UserRoleService
 
 MAX_BOOKING_DAYS = 90
@@ -82,6 +83,14 @@ class BookingService:
         )
         booking = self.repo.create(booking)
         notify_user(self.db, provider_id, "New booking request", f"You have a new {payload.booking_type} booking request ({booking.start_date:%d %b %H:%M} to {booking.end_date:%d %b %H:%M}).")
+        return booking
+
+    def set_payment(self, booking_id: int, user_id: int, payload: PaymentAction) -> Booking:
+        booking = self.get(booking_id)
+        apply_payment_action(booking, booking.requester_id, booking.provider_id, user_id, booking.status, payload)
+        booking = self.repo.save(booking)
+        other = booking.provider_id if user_id == booking.requester_id else booking.requester_id
+        notify_user(self.db, other, "Payment update", f"Booking #{booking.booking_id} payment is now: {booking.payment_status}.")
         return booking
 
     def update_status(self, booking_id: int, user_id: int, status: str) -> Booking:

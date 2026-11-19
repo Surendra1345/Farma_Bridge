@@ -23,6 +23,9 @@ class OrderResponse(BaseModel):
     completed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime | None = None
+    payment_status: str = "Unpaid"
+    payment_method: str | None = None
+    paid_at: datetime | None = None
 
     class Config:
         from_attributes = True

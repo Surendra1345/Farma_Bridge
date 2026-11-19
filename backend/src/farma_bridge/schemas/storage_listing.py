@@ -50,5 +50,8 @@ class StorageListingResponse(BaseModel):
     longitude: float | None = None
     verified_badge: bool = False
 
+    owner_name: str | None = None
+    owner_phone: str | None = None  # only for signed-in viewers
+
     class Config:
         from_attributes = True

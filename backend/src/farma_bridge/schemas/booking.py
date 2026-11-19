@@ -38,6 +38,9 @@ class BookingResponse(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime | None = None
+    payment_status: str = "Unpaid"
+    payment_method: str | None = None
+    paid_at: datetime | None = None
 
     class Config:
         from_attributes = True

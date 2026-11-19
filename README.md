@@ -20,6 +20,17 @@ code) unlocks selling, buying and booking.
 | **Machinery owner** | Post machines for rent, confirm bookings |
 | **Storage owner** | Post storage space, confirm bookings |
 
+**Ask first.** On every crop, machinery and storage card, signed-in visitors see **WhatsApp** and **Call**
+buttons for the owner (WhatsApp opens a chat pre-filled with the listing name), so you can ask "is it still
+available?" before ordering. Signed-out visitors see "Sign in to chat or call". The owner's phone number is only
+sent to signed-in users, never to anonymous visitors.
+
+**Payments are made outside the app** (UPI, cash or bank transfer) - Farma Bridge does not handle money. Once an
+order or booking is **Confirmed**, the payer taps **I've paid** (choosing UPI / Cash / Bank transfer / Other) and the
+seller taps **Confirm received** (or **Not received** to dispute); the seller can also record a cash payment
+directly with **Payment received**. Either side can undo a mistake, and the other person is notified. This is only
+a record, not proof of payment; use an online gateway if you need that.
+
 **Talk before you book.** On every order and booking, both sides see each other's phone
 number from the moment it is requested (Pending, Confirmed or Completed), with **Call** and
 **WhatsApp** buttons (WhatsApp opens a chat pre-filled with the listing name). Agree the details
@@ -152,7 +163,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (59 tests, see `backend/tests/`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (63 tests, see `backend/tests/`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |
@@ -227,4 +238,4 @@ sign-in code appears in the backend terminal as
 - Known limits: tokens last 7 days and cannot be revoked (except by suspending the user); sign-in codes
   are stored unhashed; `POST /users/send-otp` reveals whether an email is registered (the sign-in screen
   relies on it); rate limiting is per process; there is no in-app chat (use Call/WhatsApp), no payment
-  gateway, no tax invoices and no distance search yet.
+  gateway (payments are recorded manually), no tax invoices and no distance search yet.

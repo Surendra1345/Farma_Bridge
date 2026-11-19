@@ -1,5 +1,5 @@
 import type {
-  AuthResponse, Booking, CropListing, MachineListing, Order, RegisterInput, Review, Role, StorageListing, User,
+  AuthResponse, Booking, CropListing, MachineListing, Order, PaymentAction, PaymentMethod, RegisterInput, Review, Role, StorageListing, User,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
@@ -72,6 +72,8 @@ export const tradeApi = {
   myOrders: () => get<Order[]>("/orders"),
   myBookings: () => get<Booking[]>("/bookings"),
   setOrderStatus: (id: number, status: string) => send<Order>("PATCH", `/orders/${id}/status`, { status }),
+  setOrderPayment: (id: number, action: PaymentAction, method?: PaymentMethod) => send<Order>("PATCH", `/orders/${id}/payment`, { action, ...(method ? { method } : {}) }),
+  setBookingPayment: (id: number, action: PaymentAction, method?: PaymentMethod) => send<Booking>("PATCH", `/bookings/${id}/payment`, { action, ...(method ? { method } : {}) }),
   setBookingStatus: (id: number, status: string) => send<Booking>("PATCH", `/bookings/${id}/status`, { status }),
   placeOrder: (listing_id: number, quantity_ordered: number) => send<Order>("POST", "/orders", { listing_id, quantity_ordered }),
   book: (booking_type: "machine" | "storage", reference_id: number, start_date: string, end_date: string, quantity?: number) =>

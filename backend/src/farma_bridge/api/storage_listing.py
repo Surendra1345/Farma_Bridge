@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from config.database import get_db
-from config.security import CurrentUser
+from config.security import CurrentUser, OptionalUser
+from service.contact import attach_owner_contact
 from service.storage_listing_service import StorageListingService
 from schemas.storage_listing import StorageListingCreate, StorageListingResponse
 
@@ -17,16 +18,18 @@ def browse_storage_listings(
     max_price: int | None = Query(None),
     limit: int = Query(100, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    viewer: OptionalUser = None,
 ):
-    return StorageListingService(db).browse(
+    listings = StorageListingService(db).browse(
         storage_type=storage_type, availability_indicator=availability_indicator, max_price=max_price,
         limit=limit, offset=offset,
     )
+    return attach_owner_contact(db, listings, "owner_id", viewer)
 
 
 @router.get("/{listing_id}", response_model=StorageListingResponse)
-def get_storage_listing(listing_id: int, db: Session = Depends(get_db)):
-    return StorageListingService(db).get(listing_id)
+def get_storage_listing(listing_id: int, viewer: OptionalUser = None, db: Session = Depends(get_db)):
+    return attach_owner_contact(db, [StorageListingService(db).get(listing_id)], "owner_id", viewer)[0]
 
 
 @router.post("", response_model=StorageListingResponse, status_code=201)

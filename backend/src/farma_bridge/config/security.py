@@ -54,6 +54,19 @@ def get_current_user(
     return user
 
 
+def get_optional_user(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """The signed-in user if a valid token was sent, otherwise None (never an error). For public pages."""
+    if creds is None:
+        return None
+    try:
+        return get_current_user(creds, db)
+    except HTTPException:
+        return None
+
+
 def admin_emails() -> set[str]:
     return {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
 
@@ -65,3 +78,4 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]

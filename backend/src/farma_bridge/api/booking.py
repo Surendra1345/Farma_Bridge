@@ -7,6 +7,7 @@ from schemas.activity import BookingView
 from schemas.booking import BookingCreate, BookingStatusUpdate
 from service.activity_view import booking_view
 from service.booking_service import BookingService
+from service.payment_tracking import PaymentAction
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -41,3 +42,9 @@ def create_booking(payload: BookingCreate, current: CurrentUser, db: Session = D
 @router.patch("/{booking_id}/status", response_model=BookingView)
 def update_booking_status(booking_id: int, payload: BookingStatusUpdate, current: CurrentUser, db: Session = Depends(get_db)):
     return booking_view(db, BookingService(db).update_status(booking_id, current.id, payload.status))
+
+
+@router.patch("/{booking_id}/payment", response_model=BookingView)
+def update_booking_payment(booking_id: int, payload: PaymentAction, current: CurrentUser, db: Session = Depends(get_db)):
+    """Record a payment made outside the app: the requester marks it paid, the provider confirms receipt."""
+    return booking_view(db, BookingService(db).set_payment(booking_id, current.id, payload))

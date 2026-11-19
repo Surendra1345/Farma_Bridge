@@ -16,6 +16,10 @@ class Booking(Base):
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     total_price: Mapped[float] = mapped_column(Float, nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="Pending")
+    # Payments happen outside the app (UPI/cash/bank); the app only records who says what.
+    payment_status: Mapped[str] = mapped_column(String(20), nullable=False, default="Unpaid")  # Unpaid / Marked Paid / Received
+    payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
