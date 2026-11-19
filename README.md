@@ -144,7 +144,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (37 tests, incl. `tests/test_hardening.py`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |
@@ -166,7 +166,23 @@ sign-in code appears in the backend terminal as
 ## Security notes
 
 - Identity always comes from the signed token, never from request parameters.
-- Set a strong `JWT_SECRET` and restrict `CORS_ORIGINS` before deploying.
-- Never commit `.env` (it is git-ignored). `.env.example` is the template.
+- Set a strong `JWT_SECRET` and restrict `CORS_ORIGINS` before deploying. With
+  `APP_ENV=production` the API refuses to start without a `JWT_SECRET`.
+- Never commit `.env` (it is git-ignored). `.env.example` is the template. If a
+  secret was ever committed, rotate it - removing the file does not remove it from git history.
+- Uploaded photos are checked by their real file contents (JPEG/PNG/WEBP, max 5 MB); the
+  stored extension is derived from the detected type, never from the client's filename.
+- **Payments:** a user can only cancel (`Failed`) their own `Pending` payment. Marking a
+  payment `Success`/`Refunded` is restricted to admins (`ADMIN_EMAILS`) - wire the payment
+  gateway webhook to this before taking real money.
+- **Reviews** must reference a `Completed` order or booking (`context_type` = `order`/`booking`,
+  `context_id`) between the reviewer and the reviewed user, once per reviewer per order/booking.
+- **Bookings** cannot start in the past or overlap a `Confirmed` booking of the same listing
+  (checked at request time and again at confirmation). Order confirm/cancel lock the listing row
+  so concurrent requests cannot oversell stock (PostgreSQL).
+- A crop listing with `Pending`/`Confirmed` orders cannot be deleted.
+- `GET /health` is a lightweight liveness check (used by the Docker health check).
+  The Docker PostgreSQL port is published on `127.0.0.1` only.
 - Known limits: tokens last 7 days and cannot be revoked; sign-in codes are stored
-  unhashed; there is no per-IP rate limiting yet.
+  unhashed; there is no per-IP rate limiting yet; `POST /users/send-otp` reveals whether an
+  email is registered (the sign-in screen relies on it); lists are not paginated.

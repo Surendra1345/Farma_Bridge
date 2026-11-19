@@ -65,7 +65,9 @@ class OrderService:
         if status not in VALID_ORDER_STATUSES:
             raise HTTPException(400, f"status must be one of {sorted(VALID_ORDER_STATUSES)}")
 
-        order = self.get(order_id)
+        order = self.repo.get_by_id_for_update(order_id)
+        if not order:
+            raise HTTPException(404, "Order not found")
         if user_id not in (order.buyer_id, order.farmer_id):
             raise HTTPException(403, "Only the buyer or farmer can update this order")
 
@@ -78,7 +80,7 @@ class OrderService:
             )
 
         if status == "Confirmed":
-            listing = self.farmer_repo.get_by_id(order.listing_id)
+            listing = self.farmer_repo.get_by_id_for_update(order.listing_id)
             if not listing:
                 raise HTTPException(404, "Crop listing not found")
             if order.quantity_ordered > listing.quantity_remaining:
@@ -93,7 +95,7 @@ class OrderService:
             self.farmer_repo.save(listing)
 
         if status == "Cancelled" and order.status == "Confirmed":
-            listing = self.farmer_repo.get_by_id(order.listing_id)
+            listing = self.farmer_repo.get_by_id_for_update(order.listing_id)
             if not listing:
                 raise HTTPException(404, "Crop listing not found")
             listing.quantity_remaining = min(

@@ -22,6 +22,10 @@ class FarmerRepository:
     def get_by_id(self, listing_id: int) -> Farmer | None:
         return self.db.query(Farmer).filter(Farmer.id == listing_id).first()
 
+    def get_by_id_for_update(self, listing_id: int) -> Farmer | None:
+        """Lock the row until commit so concurrent order confirmations can't oversell stock."""
+        return self.db.query(Farmer).filter(Farmer.id == listing_id).with_for_update().first()
+
     def create(self, listing: Farmer) -> Farmer:
         self.db.add(listing)
         self.db.commit()

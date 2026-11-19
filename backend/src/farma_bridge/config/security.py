@@ -21,6 +21,8 @@ ALGORITHM = "HS256"
 TOKEN_TTL = timedelta(days=int(os.getenv("JWT_TTL_DAYS", "7")))
 
 _secret = os.getenv("JWT_SECRET")
+if not _secret and os.getenv("APP_ENV", "development").lower() == "production":
+    raise RuntimeError("JWT_SECRET must be set when APP_ENV=production")
 if not _secret:
     # Tokens die on restart without a fixed secret; fine for a throwaway dev run only.
     _secret = secrets.token_urlsafe(48)
