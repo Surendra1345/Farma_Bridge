@@ -11,6 +11,8 @@ class StorageListingRepository:
         storage_type: str | None = None,
         availability_indicator: str | None = None,
         max_price: int | None = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[StorageListing]:
         q = self.db.query(StorageListing)
         if storage_type:
@@ -19,7 +21,7 @@ class StorageListingRepository:
             q = q.filter(StorageListing.availability_indicator == availability_indicator)
         if max_price is not None:
             q = q.filter(StorageListing.price <= max_price)
-        return q.all()
+        return q.order_by(StorageListing.listing_id.desc()).offset(offset).limit(limit).all()
 
     def get_by_id(self, listing_id: int) -> StorageListing | None:
         return self.db.query(StorageListing).filter(StorageListing.listing_id == listing_id).first()

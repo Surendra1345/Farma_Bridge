@@ -33,6 +33,15 @@ class ReviewRepository:
         self.db.refresh(review)
         return review
 
+    def save(self, review: Review) -> Review:
+        self.db.commit()
+        self.db.refresh(review)
+        return review
+
+    def delete(self, review: Review) -> None:
+        self.db.delete(review)
+        self.db.commit()
+
     def average_rating(self, user_id: int) -> float | None:
         from sqlalchemy import func
 

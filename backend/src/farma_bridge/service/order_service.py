@@ -7,6 +7,7 @@ from repositories.farmer_repo import FarmerRepository
 from repositories.order_repo import OrderRepository
 from repositories.user_repo import UserRepository
 from schemas.order import OrderCreate
+from service.notify import notify_user
 from service.user_role_service import UserRoleService
 
 VALID_ORDER_STATUSES = {"Pending", "Confirmed", "Completed", "Cancelled"}
@@ -47,6 +48,10 @@ class OrderService:
             raise HTTPException(400, "Requested quantity exceeds available stock")
         if buyer_id == listing.user_id:
             raise HTTPException(400, "You cannot order your own listing")
+        if listing.expires_at and listing.expires_at < datetime.utcnow():
+            raise HTTPException(400, "This listing has expired")
+        if self.repo.browse(buyer_id=buyer_id, listing_id=payload.listing_id, status="Pending"):
+            raise HTTPException(400, "You already have a pending order for this listing. Cancel it first or wait for the farmer's reply")
 
         total_price = payload.quantity_ordered * listing.price_per_kg
         order = Order(
@@ -59,7 +64,9 @@ class OrderService:
             ordered_at=datetime.utcnow(),
             created_at=datetime.utcnow(),
         )
-        return self.repo.create(order)
+        order = self.repo.create(order)
+        notify_user(self.db, listing.user_id, "New order", f"You have a new order for {payload.quantity_ordered:g} {listing.unit} of {listing.crop_name} (Rs {total_price:g}).")
+        return order
 
     def update_status(self, order_id: int, user_id: int, status: str) -> Order:
         if status not in VALID_ORDER_STATUSES:
@@ -113,4 +120,7 @@ class OrderService:
 
         order.status = status
         order.updated_at = datetime.utcnow()
-        return self.repo.save(order)
+        order = self.repo.save(order)
+        other = order.buyer_id if user_id == order.farmer_id else order.farmer_id
+        notify_user(self.db, other, f"Order {status.lower()}", f"Order #{order.order_id} is now {status}.")
+        return order

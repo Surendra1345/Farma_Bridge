@@ -8,6 +8,7 @@ from repositories.booking_repo import BookingRepository
 from repositories.machine_listing_repo import MachineListingRepository
 from repositories.storage_listing_repo import StorageListingRepository
 from schemas.booking import BookingCreate
+from service.notify import notify_user
 from service.user_role_service import UserRoleService
 
 MAX_BOOKING_DAYS = 90
@@ -79,7 +80,9 @@ class BookingService:
             status="Pending",
             created_at=datetime.utcnow(),
         )
-        return self.repo.create(booking)
+        booking = self.repo.create(booking)
+        notify_user(self.db, provider_id, "New booking request", f"You have a new {payload.booking_type} booking request ({booking.start_date:%d %b %H:%M} to {booking.end_date:%d %b %H:%M}).")
+        return booking
 
     def update_status(self, booking_id: int, user_id: int, status: str) -> Booking:
         if status not in VALID_BOOKING_STATUSES:
@@ -97,6 +100,9 @@ class BookingService:
                 f"Cannot change a booking from '{booking.status}' to '{status}'",
             )
 
+        if status == "Completed" and booking.start_date > datetime.utcnow():
+            raise HTTPException(400, "A booking can only be completed once it has started")
+
         if status == "Confirmed":
             # Re-check at confirmation: another request may have been confirmed meanwhile.
             self._ensure_free(booking.booking_type, booking.reference_id, booking.start_date, booking.end_date, exclude_id=booking.booking_id)
@@ -105,7 +111,10 @@ class BookingService:
 
         booking.status = status
         booking.updated_at = datetime.utcnow()
-        return self.repo.save(booking)
+        booking = self.repo.save(booking)
+        other = booking.requester_id if user_id == booking.provider_id else booking.provider_id
+        notify_user(self.db, other, f"Booking {status.lower()}", f"Booking #{booking.booking_id} is now {status}.")
+        return booking
 
     def _ensure_free(self, booking_type: str, reference_id: int, start, end, exclude_id: int | None = None) -> None:
         """Reject a booking whose dates overlap an already Confirmed booking of the same listing."""

@@ -83,7 +83,7 @@ export default function App() {
 
   return (
     <div className="min-h-dvh bg-[#f7f8f3] pb-24 text-slate-900 md:pb-12">
-      <Header section={section} onSection={changeSection} onMenu={() => setOverlay("menu")} onAccount={() => openAccount()} />
+      <Header section={section} onSection={changeSection} onMenu={() => setOverlay("menu")} onAccount={() => openAccount()} onBell={() => openAccount("requests")} />
 
       <main className="mx-auto max-w-6xl space-y-6 px-5 pt-6 md:px-10">
         <Hero onStartSelling={requireAuth} />

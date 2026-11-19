@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/v.db"
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["JWT_SECRET"] = "test-secret-test-secret-test-secret-123456"
 
 from fastapi.testclient import TestClient  # noqa: E402

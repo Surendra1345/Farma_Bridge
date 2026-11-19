@@ -76,7 +76,7 @@ function ProfileForm({ onSignOut }: { onSignOut: () => void }) {
       </form>
 
       <section>
-        <h3 className="mb-2 text-sm font-bold text-slate-700">What you do on AgriLink</h3>
+        <h3 className="mb-2 text-sm font-bold text-slate-700">What you do on Farma Bridge</h3>
         <div className="grid gap-2 sm:grid-cols-2">
           {ROLE_OPTIONS.map(({ role, label, hint }) => {
             const has = user.roles.includes(role);
@@ -93,6 +93,25 @@ function ProfileForm({ onSignOut }: { onSignOut: () => void }) {
       </section>
 
       <button className="w-full rounded-xl border border-slate-300 py-3 font-semibold text-slate-700 hover:bg-slate-50" onClick={onSignOut}>Sign out</button>
+      <DeleteAccount onDeleted={onSignOut} />
+    </div>
+  );
+}
+
+function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const { busy, error, run } = useAction();
+  if (!confirming) return <button className="mx-auto block text-sm font-semibold text-red-700 underline" onClick={() => setConfirming(true)}>Delete my account</button>;
+  return (
+    <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm">
+      <p className="font-semibold text-red-800">Delete your account?</p>
+      <p className="mt-1 text-red-800">Your name, phone and email are erased, and your listings are taken off the marketplace. This can't be undone. You can't delete while you have open orders or bookings.</p>
+      <FormError message={error} />
+      <div className="mt-3 flex justify-end gap-2">
+        <button className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold" onClick={() => setConfirming(false)}>Keep my account</button>
+        <button disabled={busy} className="rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white disabled:opacity-60"
+          onClick={() => run(async () => { await authApi.deleteAccount(); onDeleted(); return "Account deleted"; })}>{busy ? "Deleting…" : "Yes, delete"}</button>
+      </div>
     </div>
   );
 }

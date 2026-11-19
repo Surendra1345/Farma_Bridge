@@ -18,7 +18,7 @@ def smtp_enabled() -> bool:
 
 def _send_otp_email_sync(to_email: str, otp: str, user_name: str = "User") -> bool:
     """
-    Sends a 6-digit OTP email to the user for FarmaBridge registration or account verification.
+    Sends a 6-digit OTP email to the user for Farma Bridge registration or account verification.
     """
     load_dotenv()  # never override variables already set in the environment (dev/tests/CI must not send real mail)
     email_address = os.getenv("EMAIL_ADDRESS")
@@ -37,11 +37,11 @@ def _send_otp_email_sync(to_email: str, otp: str, user_name: str = "User") -> bo
         msg = MIMEMultipart()
         msg['From'] = email_address or "no-reply@farmabridge.com"
         msg['To'] = to_email
-        msg['Subject'] = "FarmaBridge — Your Registration OTP"
+        msg['Subject'] = "Farma Bridge — Your sign-in code"
 
         body = f"""Dear {user_name},
 
-Welcome to FarmaBridge!
+Welcome to Farma Bridge!
 
 Your One-Time Password (OTP) for registration and account verification is:
 
@@ -53,7 +53,7 @@ Please do not share this OTP with anyone for security reasons.
 If you did not initiate this registration, please ignore this email or contact support immediately.
 
 Regards,
-The FarmaBridge Team
+The Farma Bridge Team
 """
 
         msg.attach(MIMEText(body, 'plain'))
@@ -75,6 +75,17 @@ The FarmaBridge Team
             status_code=500,
             detail="Could not send the verification email. Please try again later."
         )
+
+
+def _send_plain_sync(to_email: str, subject: str, body: str) -> None:
+    address, password = (os.getenv("EMAIL_ADDRESS") or "").strip(), (os.getenv("EMAIL_PASSWORD") or "").replace(" ", "").strip()
+    msg = MIMEMultipart()
+    msg["From"], msg["To"], msg["Subject"] = address or "no-reply@farmabridge.com", to_email, subject
+    msg.attach(MIMEText(body, "plain"))
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
+        server.starttls()
+        server.login(address, password)
+        server.sendmail(address, to_email, msg.as_string())
 
 
 async def send_otp_email(to_email: str, otp: str, user_name: str = "User") -> bool:

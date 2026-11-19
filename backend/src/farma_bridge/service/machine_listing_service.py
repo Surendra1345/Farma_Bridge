@@ -86,7 +86,9 @@ class MachineListingService:
         for field, value in changes.items():
             setattr(listing, field, value)
         if machine_photo:
+            old = listing.machine_photos
             listing.machine_photos = await self.upload_service.save_image(machine_photo)
+            self.upload_service.delete(old)
         return self.repo.save(listing)
 
     def update_status(self, listing_id: int, owner_id: int, status: str) -> MachineListing:
@@ -100,7 +102,9 @@ class MachineListingService:
 
     def delete(self, listing_id: int, owner_id: int) -> None:
         listing = self._get_owned(listing_id, owner_id)
+        photo = listing.machine_photos
         self.repo.delete(listing)
+        self.upload_service.delete(photo)
 
     def _get_owned(self, listing_id: int, owner_id: int) -> MachineListing:
         listing = self.repo.get_by_id(listing_id)

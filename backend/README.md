@@ -1,6 +1,6 @@
 # Farma Bridge API
 
-FastAPI service behind the AgriLink web app: accounts, listings, orders,
+FastAPI service behind the Farma Bridge web app: accounts, listings, orders,
 bookings, reviews, reports and payments.
 
 > Run the commands below from the `backend/` directory unless stated otherwise.

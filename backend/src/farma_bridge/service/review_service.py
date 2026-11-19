@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -7,7 +7,9 @@ from model.order import Order
 from model.review import Review
 from repositories.review_repo import ReviewRepository
 from repositories.user_repo import UserRepository
-from schemas.review import ReviewCreate
+from schemas.review import ReviewCreate, ReviewUpdate
+
+EDIT_WINDOW = timedelta(days=7)
 
 
 class ReviewService:
@@ -48,6 +50,30 @@ class ReviewService:
         self._update_trust_score(payload.reviewed_user_id)
         return review
 
+    def _own_editable(self, review_id: int, user_id: int) -> Review:
+        review = self.get(review_id)
+        if review.reviewer_id != user_id:
+            raise HTTPException(403, "You can only change your own reviews")
+        if datetime.utcnow() - review.created_at > EDIT_WINDOW:
+            raise HTTPException(400, "Reviews can only be changed within 7 days")
+        return review
+
+    def update(self, review_id: int, user_id: int, payload: ReviewUpdate) -> Review:
+        review = self._own_editable(review_id, user_id)
+        if payload.rating is not None:
+            review.rating = payload.rating
+        if "comment" in payload.model_fields_set:
+            review.comment = payload.comment
+        review = self.repo.save(review)
+        self._update_trust_score(review.reviewed_user_id)
+        return review
+
+    def delete(self, review_id: int, user_id: int) -> None:
+        review = self._own_editable(review_id, user_id)
+        reviewed = review.reviewed_user_id
+        self.repo.delete(review)
+        self._update_trust_score(reviewed)
+
     def _check_context(self, reviewer_id: int, payload: ReviewCreate) -> None:
         """A review must follow a Completed order/booking between exactly these two people, once."""
         if payload.context_type not in ("order", "booking") or payload.context_id is None:
@@ -69,8 +95,7 @@ class ReviewService:
 
     def _update_trust_score(self, user_id: int) -> None:
         avg = self.repo.average_rating(user_id)
-        if avg is not None:
-            user = self.user_repo.get_by_id(user_id)
-            if user:
-                user.trust_score = round(avg, 2)
-                self.user_repo.update(user)
+        user = self.user_repo.get_by_id(user_id)
+        if user:
+            user.trust_score = round(avg, 2) if avg is not None else None
+            self.user_repo.update(user)

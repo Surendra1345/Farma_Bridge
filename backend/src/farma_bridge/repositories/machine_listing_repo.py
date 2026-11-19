@@ -11,6 +11,8 @@ class MachineListingRepository:
         machine_type: str | None = None,
         status: str | None = None,
         max_price: int | None = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[MachineListing]:
         q = self.db.query(MachineListing)
         if machine_type:
@@ -19,7 +21,7 @@ class MachineListingRepository:
             q = q.filter(MachineListing.status == status)
         if max_price is not None:
             q = q.filter(MachineListing.price_per_unit <= max_price)
-        return q.all()
+        return q.order_by(MachineListing.listing_id.desc()).offset(offset).limit(limit).all()
 
     def get_by_id(self, listing_id: int) -> MachineListing | None:
         return self.db.query(MachineListing).filter(MachineListing.listing_id == listing_id).first()

@@ -4,10 +4,16 @@ from datetime import datetime, timedelta
 
 from fastapi import HTTPException
 from passlib.context import CryptContext
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from config.security import create_access_token
+from model.booking import Booking
+from model.farmer import Farmer
+from model.machine_listing import MachineListing
+from model.order import Order
+from model.storage_listing import StorageListing
 from model.user import User
 from repositories.user_repo import UserRepository
 from schemas.user import UserCreate
@@ -89,6 +95,27 @@ class UserService:
         except IntegrityError:
             self.repo.db.rollback()
             raise HTTPException(400, "That phone number is already used by another account")
+
+    def delete_account(self, user: User) -> None:
+        """Anonymise the account and take its listings off the market. History (orders, reviews) is kept."""
+        db = self.repo.db
+        open_orders = db.query(Order).filter(
+            or_(Order.buyer_id == user.id, Order.farmer_id == user.id), Order.status.in_(("Pending", "Confirmed"))
+        ).count()
+        open_bookings = db.query(Booking).filter(
+            or_(Booking.requester_id == user.id, Booking.provider_id == user.id), Booking.status.in_(("Pending", "Confirmed"))
+        ).count()
+        if open_orders or open_bookings:
+            raise HTTPException(400, "You still have open orders or bookings. Complete or cancel them before deleting your account")
+        db.query(Farmer).filter(Farmer.user_id == user.id).update({"status": "Sold", "quantity_remaining": 0})
+        db.query(MachineListing).filter(MachineListing.owner_id == user.id).update({"status": "Booked"})
+        db.query(StorageListing).filter(StorageListing.owner_id == user.id).update({"availability_indicator": "Full"})
+        user.name, user.email = "Deleted user", f"deleted-{user.id}@deleted.invalid"
+        user.phone_number, user.address, user.location = f"deleted-{user.id}", "-", "-"
+        user.otp = user.otp_expires_at = None
+        user.password_hash = "!"
+        user.is_active = False
+        db.commit()
 
     async def send_otp(self, email: str) -> None:
         user = self.repo.get_by_email(email)
