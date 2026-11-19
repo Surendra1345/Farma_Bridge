@@ -1,11 +1,11 @@
-import { Bell, Menu, Sprout, Stethoscope } from "lucide-react";
+import { Bell, Menu, Sprout } from "lucide-react";
 import { useAuth } from "../auth";
 import { usePendingRequestCount } from "./Activity";
 import { SECTIONS, type Section } from "../sections";
 
-type Props = { section: Section; onSection: (s: Section) => void; onMenu: () => void; onAccount: () => void; onBell: () => void; onDoctor: () => void };
+type Props = { section: Section; onSection: (s: Section) => void; onMenu: () => void; onAccount: () => void; onBell: () => void };
 
-export function Header({ section, onSection, onMenu, onAccount, onBell, onDoctor }: Props) {
+export function Header({ section, onSection, onMenu, onAccount, onBell }: Props) {
   const { user } = useAuth();
   const pending = usePendingRequestCount();
   return (
@@ -23,7 +23,6 @@ export function Header({ section, onSection, onMenu, onAccount, onBell, onDoctor
               <Icon size={18} />{label}
             </button>
           ))}
-          <button onClick={onDoctor} className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-[#1d5a2b] transition hover:bg-white"><Stethoscope size={18} />Crop Doctor</button>
         </nav>
 
         <div className="flex items-center gap-1">

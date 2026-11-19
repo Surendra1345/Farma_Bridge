@@ -136,6 +136,13 @@ def scrub_amounts(text: str) -> str:
     return re.sub(r"\.{2,}", ".", kept + " " + LABEL_NOTE).strip()
 
 
+def scrub_if_dosing(text: str) -> str:
+    """For free-text replies (the chat assistant): strip dose/schedule amounts only when the text is about products/spraying."""
+    if _DOSE.search(text) and _PRODUCT_WORDS.search(text):
+        return scrub_amounts(text)
+    return text
+
+
 def _scrub(d: CropDiagnosis) -> CropDiagnosis:
     t = d.treatment
     t.chemical_options = [scrub_amounts(x) for x in t.chemical_options]

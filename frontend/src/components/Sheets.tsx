@@ -1,8 +1,7 @@
-import { Stethoscope } from "lucide-react";
 import { SECTIONS, type Section } from "../sections";
 import { Sheet } from "./Sheet";
 
-export function MenuSheet({ onClose, onSection, onCropDoctor }: { onClose: () => void; onSection: (s: Section) => void; onCropDoctor: () => void }) {
+export function MenuSheet({ onClose, onSection }: { onClose: () => void; onSection: (s: Section) => void }) {
   return (
     <Sheet title="Menu" side="right" onClose={onClose}>
       <p className="mt-10 text-xs font-bold tracking-widest text-[#d8731c]">EXPLORE</p>
@@ -11,8 +10,6 @@ export function MenuSheet({ onClose, onSection, onCropDoctor }: { onClose: () =>
           <Icon size={20} />{label}
         </button>
       ))}
-      <p className="mt-6 text-xs font-bold tracking-widest text-[#d8731c]">FARM HELP</p>
-      <button className="flex w-full items-center gap-3 border-b py-4 text-left font-semibold" onClick={onCropDoctor}><Stethoscope size={20} />Crop Doctor</button>
     </Sheet>
   );
 }
