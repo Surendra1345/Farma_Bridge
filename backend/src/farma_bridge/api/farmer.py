@@ -2,7 +2,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from config.database import get_db
-from config.security import CurrentUser
+from config.security import CurrentUser, OptionalUser
+from service.contact import attach_owner_contact
 from service.farmer_service import FarmerService
 from schemas.farmer import FarmerResponse
 
@@ -20,16 +21,18 @@ def browse_crop_listings(
     include_expired: bool = Query(False, description="Owners use this to find and renew expired listings"),
     limit: int = Query(100, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    viewer: OptionalUser = None,
 ):
-    return FarmerService(db).browse(
+    listings = FarmerService(db).browse(
         crop_name=crop_name, category=category, min_price=min_price, max_price=max_price, status=status,
         include_expired=include_expired, limit=limit, offset=offset,
     )
+    return attach_owner_contact(db, listings, "user_id", viewer)
 
 
 @router.get("/{listing_id}", response_model=FarmerResponse)
-def get_crop_listing(listing_id: int, db: Session = Depends(get_db)):
-    return FarmerService(db).get(listing_id)
+def get_crop_listing(listing_id: int, viewer: OptionalUser = None, db: Session = Depends(get_db)):
+    return attach_owner_contact(db, [FarmerService(db).get(listing_id)], "user_id", viewer)[0]
 
 
 @router.post("", response_model=FarmerResponse, status_code=201)

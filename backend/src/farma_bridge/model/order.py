@@ -16,6 +16,10 @@ class Order(Base):
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="Pending")
     ordered_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Payments happen outside the app (UPI/cash/bank); the app only records who says what.
+    payment_status: Mapped[str] = mapped_column(String(20), nullable=False, default="Unpaid")  # Unpaid / Marked Paid / Received
+    payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 

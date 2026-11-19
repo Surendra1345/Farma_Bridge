@@ -3,13 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Inbox, MessageCircle, Phone, ShoppingBag, Star } from "lucide-react";
 import { mediaUrl, reviewApi, tradeApi } from "../api";
 import { useAuth } from "../auth";
-import type { Booking, Order, Party } from "../types";
+import type { Booking, Order, Party, PaymentAction, PaymentMethod, PaymentStatus } from "../types";
 import { FormError } from "./AuthSheet";
 
 /** One row for either an order or a booking, seen from the current user's side. */
 type Item = {
   key: string; kind: "order" | "booking"; id: number; status: string; title: string; photo?: string | null;
   label: string; detail: string; total: number; when: string; other?: Party | null; otherRole: string; sortAt: string;
+  payment: PaymentStatus; paymentMethod?: string | null;
 };
 
 const ACTIVE = new Set(["Pending", "Confirmed"]);
@@ -29,6 +30,7 @@ function orderItem(o: Order, mine: boolean): Item {
     key: `o${o.order_id}`, kind: "order", id: o.order_id, status: o.status, title: o.listing_title ?? `Listing #${o.listing_id}`,
     photo: o.listing_photo, label: "Crop order", detail: `${o.quantity_ordered} ${o.unit ?? "kg"}${o.price_per_unit ? ` × ₹${o.price_per_unit}` : ""}`,
     total: o.total_price, when: `Ordered ${fmtDate(o.ordered_at)}`, other: mine ? o.farmer : o.buyer, otherRole: mine ? "Seller" : "Buyer", sortAt: o.ordered_at,
+    payment: o.payment_status, paymentMethod: o.payment_method,
   };
 }
 function bookingItem(b: Booking, mine: boolean): Item {
@@ -37,6 +39,7 @@ function bookingItem(b: Booking, mine: boolean): Item {
     photo: b.listing_photo, label: b.booking_type === "machine" ? "Machinery booking" : "Storage booking",
     detail: `${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}`, total: b.total_price, when: `Requested ${fmtDate(b.created_at)}`,
     other: mine ? b.provider : b.requester, otherRole: mine ? "Owner" : "Booked by", sortAt: b.created_at,
+    payment: b.payment_status, paymentMethod: b.payment_method,
   };
 }
 
@@ -50,6 +53,50 @@ function actionsFor(item: Item, side: "mine" | "incoming"): { label: string; sta
   if (item.status === "Pending") return [{ label: item.kind === "order" ? "Cancel order" : "Cancel booking", status: "Cancelled", danger: true }];
   if (item.status === "Confirmed") return [{ label: item.kind === "order" ? "Mark received" : "Mark completed", status: "Completed" }, { label: "Cancel", status: "Cancelled", danger: true }];
   return [];
+}
+
+const METHODS: PaymentMethod[] = ["UPI", "Cash", "Bank transfer", "Other"];
+
+/** Payments happen outside the app (UPI/cash/bank). Here the payer says "I paid" and the receiver confirms. */
+function PaymentBox({ item, side }: { item: Item; side: "mine" | "incoming" }) {
+  const qc = useQueryClient();
+  const [method, setMethod] = useState<PaymentMethod>("UPI");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (item.status !== "Confirmed" && item.status !== "Completed") return null;
+  const payer = side === "mine";
+  const run = async (action: PaymentAction) => {
+    setBusy(true); setError("");
+    try {
+      if (item.kind === "order") await tradeApi.setOrderPayment(item.id, action, method);
+      else await tradeApi.setBookingPayment(item.id, action, method);
+      await Promise.all([qc.invalidateQueries({ queryKey: ["orders"] }), qc.invalidateQueries({ queryKey: ["bookings"] })]);
+    } catch (e) { setError(e instanceof Error ? e.message : "Couldn't update the payment."); }
+    finally { setBusy(false); }
+  };
+  const btn = "rounded-lg px-3 py-1.5 text-sm font-bold disabled:opacity-60";
+  const picker = (
+    <select aria-label="How was it paid" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm">
+      {METHODS.map((m) => <option key={m}>{m}</option>)}
+    </select>
+  );
+  return (
+    <div className="mt-2 rounded-xl bg-slate-50 p-3 text-sm">
+      <p className="font-semibold">
+        {item.payment === "Received" ? <span className="text-[#1d5a2b]">✓ Payment received{item.paymentMethod ? ` (${item.paymentMethod})` : ""}</span>
+          : item.payment === "Marked Paid" ? <span className="text-amber-800">Paid via {item.paymentMethod} - waiting for {payer ? "the seller" : "you"} to confirm</span>
+          : <span className="text-slate-700">Payment pending · {money(item.total)} <span className="font-normal text-slate-500">(pay by UPI, cash or bank transfer; the app doesn't handle money)</span></span>}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {payer && item.payment === "Unpaid" && <>{picker}<button disabled={busy} className={`${btn} bg-[#1d5a2b] text-white`} onClick={() => run("paid")}>I've paid</button></>}
+        {payer && item.payment === "Marked Paid" && <button disabled={busy} className={`${btn} border border-slate-300`} onClick={() => run("undo")}>Undo</button>}
+        {!payer && item.payment === "Unpaid" && <>{picker}<button disabled={busy} className={`${btn} bg-[#1d5a2b] text-white`} onClick={() => run("received")}>Payment received</button></>}
+        {!payer && item.payment === "Marked Paid" && <><button disabled={busy} className={`${btn} bg-[#1d5a2b] text-white`} onClick={() => run("received")}>Confirm received</button><button disabled={busy} className={`${btn} border border-red-200 text-red-700`} onClick={() => run("not_received")}>Not received</button></>}
+        {!payer && item.payment === "Received" && <button disabled={busy} className={`${btn} border border-slate-300`} onClick={() => run("not_received")}>Undo</button>}
+      </div>
+      <FormError message={error} />
+    </div>
+  );
 }
 
 /** After a deal is Completed, each person can rate the other once. */
@@ -183,6 +230,7 @@ export function ActivityList({ side }: { side: "mine" | "incoming" }) {
                   <p className="text-xs text-slate-400">{item.when}</p>
                 </div>
               </div>
+              <PaymentBox item={item} side={side} />
               <ReviewBox item={item} reviewed={reviewed.has(`${item.kind}:${item.id}`)} />
               {actions.length > 0 && (
                 <div className="mt-3 flex flex-wrap justify-end gap-2">

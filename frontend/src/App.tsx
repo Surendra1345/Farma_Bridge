@@ -31,15 +31,16 @@ export default function App() {
   const [category, setCategory] = useState("All");
   const [overlay, setOverlay] = useState<Overlay>(null);
 
+  const { user } = useAuth();
+  // Keyed by user: after sign-in the lists are refetched so the owners' phone numbers (signed-in only) show up.
   const queries = {
-    crops: useQuery({ queryKey: ["crops"], queryFn: marketplaceApi.crops }),
-    machinery: useQuery({ queryKey: ["machines"], queryFn: marketplaceApi.machines }),
-    storage: useQuery({ queryKey: ["storage"], queryFn: marketplaceApi.storage }),
+    crops: useQuery({ queryKey: ["crops", user?.id ?? 0], queryFn: marketplaceApi.crops }),
+    machinery: useQuery({ queryKey: ["machines", user?.id ?? 0], queryFn: marketplaceApi.machines }),
+    storage: useQuery({ queryKey: ["storage", user?.id ?? 0], queryFn: marketplaceApi.storage }),
   };
   const active = queries[section];
   const meta = SECTIONS.find((s) => s.key === section)!;
   const Icon = meta.icon;
-  const { user } = useAuth();
   const [action, setAction] = useState<Action | null>(null);
   const [accountTab, setAccountTab] = useState<AccountTab>("profile");
   const openAccount = (tab: AccountTab = "profile") => { setAccountTab(tab); setOverlay(user ? "account" : "auth"); };
@@ -54,6 +55,8 @@ export default function App() {
   const changeSection = (next: Section) => { setSection(next); setSearch(""); setCategory("All"); };
   const clearFilters = () => { setSearch(""); setCategory("All"); };
 
+  const contact = (name: string | null | undefined, phone: string | null | undefined, what: string) => ({ name, phone, what, onNeedSignIn: () => setOverlay("auth") });
+
   // Not memoized on purpose: the card handlers close over `user`, which changes on sign-in/out.
   const cards = (() => {
     if (section === "crops") {
@@ -62,7 +65,7 @@ export default function App() {
         .map((c) => (
           <ListingCard key={c.id} title={c.crop_name} subtitle={`${c.category} · ${c.quantity_remaining} ${c.unit} left`} location={c.location}
             price={`₹${c.price_per_kg}`} priceUnit="per kg" image={c.post_cultivation_photo} fallbackIcon={Icon}
-            badge={c.quality_grade ? `Grade ${c.quality_grade}` : undefined} own={c.user_id === user?.id} unavailable={c.status === "Sold" || c.quantity_remaining <= 0 ? "Sold out" : undefined} onManage={() => openAccount("listings")} actionLabel="Buy / contact grower" onAction={() => start({ type: "buy", crop: c })} />
+            contact={contact(c.owner_name, c.owner_phone, c.crop_name)} badge={c.quality_grade ? `Grade ${c.quality_grade}` : undefined} own={c.user_id === user?.id} unavailable={c.status === "Sold" || c.quantity_remaining <= 0 ? "Sold out" : undefined} onManage={() => openAccount("listings")} actionLabel="Buy / contact grower" onAction={() => start({ type: "buy", crop: c })} />
         ));
     }
     if (section === "machinery") {
@@ -70,14 +73,14 @@ export default function App() {
         .filter((m) => matches(search, m.machine_type, m.location))
         .map((m) => (
           <ListingCard key={m.listing_id} title={m.machine_type} location={m.location} price={`₹${m.price_per_unit}`} priceUnit={perUnit(m.pricing_unit)}
-            image={m.machine_photos} fallbackIcon={Icon} badge={m.status} own={m.owner_id === user?.id} unavailable={m.status === "Booked" ? "Currently booked" : undefined} onManage={() => openAccount("listings")} actionLabel="Book machinery" onAction={() => start({ type: "book", target: { kind: "machine", listing: m } })} />
+            image={m.machine_photos} fallbackIcon={Icon} contact={contact(m.owner_name, m.owner_phone, m.machine_type)} badge={m.status} own={m.owner_id === user?.id} unavailable={m.status === "Booked" ? "Currently booked" : undefined} onManage={() => openAccount("listings")} actionLabel="Book machinery" onAction={() => start({ type: "book", target: { kind: "machine", listing: m } })} />
         ));
     }
     return (queries.storage.data ?? [])
       .filter((s) => matches(search, s.storage_type, s.location))
       .map((s) => (
         <ListingCard key={s.listing_id} title={s.storage_type} subtitle={`Capacity ${s.total_capacity}`} location={s.location} price={`₹${s.price}`}
-          priceUnit={perUnit(s.pricing_unit)} image={s.storage_photo} fallbackIcon={Icon} badge={s.availability_indicator} own={s.owner_id === user?.id} unavailable={s.availability_indicator === "Full" ? "Full right now" : undefined} onManage={() => openAccount("listings")} actionLabel="Book storage" onAction={() => start({ type: "book", target: { kind: "storage", listing: s } })} />
+          priceUnit={perUnit(s.pricing_unit)} image={s.storage_photo} fallbackIcon={Icon} contact={contact(s.owner_name, s.owner_phone, s.storage_type)} badge={s.availability_indicator} own={s.owner_id === user?.id} unavailable={s.availability_indicator === "Full" ? "Full right now" : undefined} onManage={() => openAccount("listings")} actionLabel="Book storage" onAction={() => start({ type: "book", target: { kind: "storage", listing: s } })} />
       ));
   })();
 

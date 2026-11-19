@@ -7,6 +7,7 @@ from schemas.activity import OrderView
 from schemas.order import OrderCreate, OrderStatusUpdate
 from service.activity_view import order_view
 from service.order_service import OrderService
+from service.payment_tracking import PaymentAction
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -41,3 +42,9 @@ def create_order(payload: OrderCreate, current: CurrentUser, db: Session = Depen
 @router.patch("/{order_id}/status", response_model=OrderView)
 def update_order_status(order_id: int, payload: OrderStatusUpdate, current: CurrentUser, db: Session = Depends(get_db)):
     return order_view(db, OrderService(db).update_status(order_id, current.id, payload.status))
+
+
+@router.patch("/{order_id}/payment", response_model=OrderView)
+def update_order_payment(order_id: int, payload: PaymentAction, current: CurrentUser, db: Session = Depends(get_db)):
+    """Record a payment made outside the app: the buyer marks it paid, the farmer confirms receipt."""
+    return order_view(db, OrderService(db).set_payment(order_id, current.id, payload))

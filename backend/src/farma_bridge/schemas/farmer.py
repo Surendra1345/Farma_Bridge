@@ -42,5 +42,8 @@ class FarmerResponse(BaseModel):
     status: str | None = "Available"
     expires_at: datetime | None = None
 
+    owner_name: str | None = None
+    owner_phone: str | None = None  # only for signed-in viewers
+
     class Config:
         from_attributes = True

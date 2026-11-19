@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from config.database import get_db
-from config.security import CurrentUser
+from config.security import CurrentUser, OptionalUser
+from service.contact import attach_owner_contact
 from service.machine_listing_service import MachineListingService
 from schemas.machine_listing import MachineListingCreate, MachineListingResponse
 
@@ -16,13 +17,15 @@ def browse_machine_listings(
     max_price: int | None = Query(None),
     limit: int = Query(100, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    viewer: OptionalUser = None,
 ):
-    return MachineListingService(db).browse(machine_type=machine_type, status=status, max_price=max_price, limit=limit, offset=offset)
+    listings = MachineListingService(db).browse(machine_type=machine_type, status=status, max_price=max_price, limit=limit, offset=offset)
+    return attach_owner_contact(db, listings, "owner_id", viewer)
 
 
 @router.get("/{listing_id}", response_model=MachineListingResponse)
-def get_machine_listing(listing_id: int, db: Session = Depends(get_db)):
-    return MachineListingService(db).get(listing_id)
+def get_machine_listing(listing_id: int, viewer: OptionalUser = None, db: Session = Depends(get_db)):
+    return attach_owner_contact(db, [MachineListingService(db).get(listing_id)], "owner_id", viewer)[0]
 
 
 @router.post("", response_model=MachineListingResponse, status_code=201)

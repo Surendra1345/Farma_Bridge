@@ -8,6 +8,7 @@ from repositories.order_repo import OrderRepository
 from repositories.user_repo import UserRepository
 from schemas.order import OrderCreate
 from service.notify import notify_user
+from service.payment_tracking import PaymentAction, apply_payment_action
 from service.user_role_service import UserRoleService
 
 VALID_ORDER_STATUSES = {"Pending", "Confirmed", "Completed", "Cancelled"}
@@ -66,6 +67,16 @@ class OrderService:
         )
         order = self.repo.create(order)
         notify_user(self.db, listing.user_id, "New order", f"You have a new order for {payload.quantity_ordered:g} {listing.unit} of {listing.crop_name} (Rs {total_price:g}).")
+        return order
+
+    def set_payment(self, order_id: int, user_id: int, payload: PaymentAction) -> Order:
+        order = self.repo.get_by_id_for_update(order_id)
+        if not order:
+            raise HTTPException(404, "Order not found")
+        apply_payment_action(order, order.buyer_id, order.farmer_id, user_id, order.status, payload)
+        order = self.repo.save(order)
+        other = order.farmer_id if user_id == order.buyer_id else order.buyer_id
+        notify_user(self.db, other, "Payment update", f"Order #{order.order_id} payment is now: {order.payment_status}.")
         return order
 
     def update_status(self, order_id: int, user_id: int, status: str) -> Order:
