@@ -11,7 +11,9 @@ from schemas.activity import BookingView, OrderView, Party
 from schemas.booking import BookingResponse
 from schemas.order import OrderResponse
 
-SHARE_PHONE_STATUSES = {"Confirmed", "Completed"}
+# Both sides of a deal can see each other's phone number from the moment it is requested, so they can
+# call or WhatsApp to agree details *before* the provider accepts. It is hidden once a deal is cancelled.
+SHARE_PHONE_STATUSES = {"Pending", "Confirmed", "Completed"}
 
 
 def _party(db: Session, user_id: int, share_phone: bool) -> Party | None:

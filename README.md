@@ -20,6 +20,12 @@ code) unlocks selling, buying and booking.
 | **Machinery owner** | Post machines for rent, confirm bookings |
 | **Storage owner** | Post storage space, confirm bookings |
 
+**Talk before you book.** On every order and booking, both sides see each other's phone
+number from the moment it is requested (Pending, Confirmed or Completed), with **Call** and
+**WhatsApp** buttons (WhatsApp opens a chat pre-filled with the listing name). Agree the details
+by phone or chat first, then the owner accepts or declines - whether to talk is up to them.
+Numbers are only shown to the two people in the deal and are hidden again if it is cancelled.
+
 A person can hold several roles at once. Roles are chosen at sign-up and can be
 added later.
 
@@ -144,7 +150,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (37 tests, incl. `tests/test_hardening.py`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (39 tests, incl. `tests/test_hardening.py` and `tests/test_contact_details.py`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |
