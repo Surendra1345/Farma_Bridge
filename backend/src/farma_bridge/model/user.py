@@ -21,8 +21,14 @@ class User(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)   # home GPS - needed for "nearby" queries
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     trust_score: Mapped[float | None] = mapped_column(Float, nullable=True)  # computed from thumbs up/down
+    upi_id: Mapped[str | None] = mapped_column(String(60), nullable=True)  # e.g. name@okhdfcbank; shown to people paying this user
     is_active: Mapped[bool] = mapped_column(nullable=False, default=True)  # False = suspended/banned
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    @property
+    def is_admin(self) -> bool:
+        from config.security import admin_emails  # local import: security imports this module
+        return self.email.lower() in admin_emails()
 
     # A user can hold multiple roles, and can post many listings per role over time —
     # all one-to-many, not one-to-one.

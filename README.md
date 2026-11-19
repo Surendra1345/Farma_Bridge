@@ -25,6 +25,12 @@ buttons for the owner (WhatsApp opens a chat pre-filled with the listing name), 
 available?" before ordering. Signed-out visitors see "Sign in to chat or call". The owner's phone number is only
 sent to signed-in users, never to anonymous visitors.
 
+**Pay by QR code.** Sellers can add an optional **UPI id** in Account > Profile. Once a deal is confirmed, the buyer's
+payment panel shows a **QR code** for exactly that amount (scan it with GPay, PhonePe, Paytm or any UPI app), the UPI id
+with a *Copy* button, and an *Open UPI app* button on phones. The QR is generated in the browser from a standard
+`upi://pay` link and nothing is sent to our servers. A seller's UPI id is shown only to the person paying, only while the
+order/booking is confirmed or completed.
+
 **Payments are made outside the app** (UPI, cash or bank transfer) - Farma Bridge does not handle money. Once an
 order or booking is **Confirmed**, the payer taps **I've paid** (choosing UPI / Cash / Bank transfer / Other) and the
 seller taps **Confirm received** (or **Not received** to dispute); the seller can also record a cash payment
@@ -163,7 +169,7 @@ sign-in code appears in the backend terminal as
 | Task | Command |
 |---|---|
 | Add demo data | `cd backend && python3.11 scripts/seed_demo.py` (`--reset`, `--remove`, `--code <email>`) |
-| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (63 tests, see `backend/tests/`) |
+| Run backend tests | `cd backend && PYTHONPATH=src/farma_bridge python3.11 -m unittest discover -s tests -v` (67 tests, see `backend/tests/`) |
 | Type-check frontend | `cd frontend && npx tsc -b` |
 | Production build | `cd frontend && npm run build` |
 | New DB migration | `cd backend/src/farma_bridge && python3.11 -m alembic revision --autogenerate -m "message"` |
@@ -216,16 +222,19 @@ sign-in code appears in the backend terminal as
   renews it). A listing that has any orders can't be deleted - mark it `Sold` instead.
 - **Bookings can only be completed once they have started**, so a review can't be farmed by
   completing a booking early.
-- **Reviews:** the reviewer can change or delete their own review for 7 days
-  (`PATCH`/`DELETE /reviews/{id}`); the reviewed person's average rating follows.
-- **Admin:** people listed in `ADMIN_EMAILS` can search users (`GET /admin/users?search=`) and
-  suspend/reinstate them (`PATCH /admin/users/{id}/active`); a suspended user's token stops working at once.
+- **Reviews:** the reviewer can change or delete their own review for 7 days (**Edit** / **Delete** next to "You rated..." on the
+  card, or `PATCH`/`DELETE /reviews/{id}`); the reviewed person's average rating follows.
+- **Admin:** people listed in `ADMIN_EMAILS` (set it in `.env`, then `docker compose up -d`) get an **Admin** tab in their Account
+  screen to resolve/dismiss user reports and to search, suspend or reinstate users. A suspended user's token stops working at once.
+  Anyone in a deal can **Report** the other person from the order/booking card.
 - **Delete account:** Account > Profile > *Delete my account* (`DELETE /users/me`) erases the name, phone and
   email and takes the person's listings off the market; blocked while orders/bookings are open.
-- **Notifications:** the bell shows how many requests are waiting for your answer. With
+- **Notifications:** the bell shows how many requests are waiting for your answer, and the app checks for new ones every 30 seconds
+  (no reload needed). With
   `NOTIFY_EMAIL_ENABLED=true` (and SMTP set up) owners are also emailed about new orders/bookings and status
   changes. Off by default so dev/test never sends mail.
-- **Rate limits:** `register` 10, `send-otp` 15 and `verify-otp` 30 calls per IP per 10 minutes
+- **Rate limits:** nginx overwrites `X-Forwarded-For` with the real client address, so the limits can't be dodged with a fake header
+  (and the API port 8200 is published on `127.0.0.1` only). `register` 10, `send-otp` 15 and `verify-otp` 30 calls per IP per 10 minutes
   (in-memory, per process; `RATE_LIMIT_ENABLED=false` disables it).
 - **Uploads** are decoded, auto-rotated, shrunk to at most 1600 px and stripped of EXIF/GPS data;
   replaced or deleted photos are removed from disk.

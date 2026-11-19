@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$")
 _PHONE = re.compile(r"^\d{10}$")
+_UPI = re.compile(r"^[A-Za-z0-9._-]{2,}@[A-Za-z][A-Za-z0-9]{1,}$")
 
 
 def _clean(v: str | None) -> str | None:
@@ -68,11 +69,20 @@ class UserUpdate(BaseModel):
     location: str | None = Field(default=None, max_length=120)
     latitude: float | None = None
     longitude: float | None = None
+    upi_id: str | None = Field(default=None, max_length=60)  # "" clears it
 
     @field_validator("phone_number")
     @classmethod
     def _phone(cls, v):
         return _check_phone(v)
+
+    @field_validator("upi_id")
+    @classmethod
+    def _upi(cls, v):
+        v = _clean(v)
+        if v and not _UPI.match(v):
+            raise ValueError("Enter a valid UPI id like name@bank")
+        return v
 
 
 class UserResponse(BaseModel):
@@ -85,6 +95,8 @@ class UserResponse(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     trust_score: float | None = None
+    upi_id: str | None = None
+    is_admin: bool = False
     roles: list[str] = []
 
     @field_validator("roles", mode="before")

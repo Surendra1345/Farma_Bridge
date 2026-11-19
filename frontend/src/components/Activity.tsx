@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Inbox, MessageCircle, Phone, ShoppingBag, Star } from "lucide-react";
-import { mediaUrl, reviewApi, tradeApi } from "../api";
+import { mediaUrl, reportApi, reviewApi, tradeApi } from "../api";
 import { useAuth } from "../auth";
-import type { Booking, Order, Party, PaymentAction, PaymentMethod, PaymentStatus } from "../types";
+import type { Booking, Order, Party, PaymentAction, PaymentMethod, PaymentStatus, Review } from "../types";
 import { FormError } from "./AuthSheet";
+import { PaymentQr } from "./PaymentQr";
 
 /** One row for either an order or a booking, seen from the current user's side. */
 type Item = {
@@ -87,6 +88,12 @@ function PaymentBox({ item, side }: { item: Item; side: "mine" | "incoming" }) {
           : item.payment === "Marked Paid" ? <span className="text-amber-800">Paid via {item.paymentMethod} - waiting for {payer ? "the seller" : "you"} to confirm</span>
           : <span className="text-slate-700">Payment pending · {money(item.total)} <span className="font-normal text-slate-500">(pay by UPI, cash or bank transfer; the app doesn't handle money)</span></span>}
       </p>
+      {payer && item.payment !== "Received" && item.other?.upi_id && (
+        <PaymentQr upiId={item.other.upi_id} payee={item.other.name} amount={item.total} note={`${item.label} #${item.id}`} />
+      )}
+      {payer && item.payment === "Unpaid" && !item.other?.upi_id && (
+        <p className="mt-1 text-xs text-slate-500">{item.other?.name ?? "The seller"} hasn't added a UPI id. Ask them on WhatsApp or call, or pay in cash.</p>
+      )}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {payer && item.payment === "Unpaid" && <>{picker}<button disabled={busy} className={`${btn} bg-[#1d5a2b] text-white`} onClick={() => run("paid")}>I've paid</button></>}
         {payer && item.payment === "Marked Paid" && <button disabled={busy} className={`${btn} border border-slate-300`} onClick={() => run("undo")}>Undo</button>}
@@ -99,30 +106,44 @@ function PaymentBox({ item, side }: { item: Item; side: "mine" | "incoming" }) {
   );
 }
 
-/** After a deal is Completed, each person can rate the other once. */
-function ReviewBox({ item, reviewed }: { item: Item; reviewed: boolean }) {
+/** After a deal is Completed, each person can rate the other once, and change or delete it for 7 days. */
+function ReviewBox({ item, review }: { item: Item; review?: Review }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
+  const [rating, setRating] = useState(review?.rating ?? 0);
+  const [comment, setComment] = useState(review?.comment ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   if (item.status !== "Completed" || !item.other) return null;
-  if (reviewed) return <p className="mt-2 text-xs font-semibold text-[#1d5a2b]">✓ You rated {item.other.name}</p>;
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["my-reviews", user?.id] }), qc.invalidateQueries({ queryKey: ["orders"] }), qc.invalidateQueries({ queryKey: ["bookings"] })]);
+  const editable = !review || Date.now() - new Date(/[zZ]|[+-]\d\d:\d\d$/.test(review.created_at) ? review.created_at : `${review.created_at}Z`).getTime() < 7 * 86_400_000;
+  if (review && !open) {
+    return (
+      <p className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#1d5a2b]">
+        <span>✓ You rated {item.other.name} {"★".repeat(review.rating)}</span>
+        {editable && <>
+          <button className="underline" onClick={() => { setRating(review.rating); setComment(review.comment ?? ""); setOpen(true); }}>Edit</button>
+          <button className="text-red-700 underline" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await reviewApi.remove(review.review_id); await refresh(); } catch (e) { setError(e instanceof Error ? e.message : "Couldn't delete."); } finally { setBusy(false); } }}>Delete</button>
+        </>}
+        <FormError message={error} />
+      </p>
+    );
+  }
   if (!open) return <button onClick={() => setOpen(true)} className="mt-2 inline-flex items-center gap-1 rounded-lg border border-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-800"><Star size={14} />Rate {item.other.name}</button>;
   const submit = async () => {
     if (!rating) { setError("Pick 1 to 5 stars."); return; }
     setBusy(true); setError("");
     try {
-      await reviewApi.create({ reviewed_user_id: item.other!.id, rating, comment: comment.trim() || undefined, context_type: item.kind, context_id: item.id });
-      await Promise.all([qc.invalidateQueries({ queryKey: ["my-reviews", user?.id] }), qc.invalidateQueries({ queryKey: ["orders"] }), qc.invalidateQueries({ queryKey: ["bookings"] })]);
+      if (review) await reviewApi.update(review.review_id, { rating, comment: comment.trim() || null });
+      else await reviewApi.create({ reviewed_user_id: item.other!.id, rating, comment: comment.trim() || undefined, context_type: item.kind, context_id: item.id });
+      await refresh(); setOpen(false);
     } catch (e) { setError(e instanceof Error ? e.message : "Couldn't save your review."); }
     finally { setBusy(false); }
   };
   return (
     <div className="mt-2 rounded-xl bg-amber-50 p-3">
-      <p className="text-sm font-semibold">How was it with {item.other.name}?</p>
+      <p className="text-sm font-semibold">{review ? "Change your review of" : "How was it with"} {item.other.name}?</p>
       <div className="mt-1 flex gap-1" role="radiogroup" aria-label="Rating">
         {[1, 2, 3, 4, 5].map((n) => (
           <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} onClick={() => setRating(n)}>
@@ -134,8 +155,43 @@ function ReviewBox({ item, reviewed }: { item: Item; reviewed: boolean }) {
         className="mt-2 w-full rounded-lg border border-amber-200 bg-white p-2 text-sm" />
       <FormError message={error} />
       <div className="mt-2 flex justify-end gap-2">
-        <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold" onClick={() => setOpen(false)}>Not now</button>
-        <button disabled={busy} className="rounded-lg bg-[#1d5a2b] px-4 py-1.5 text-sm font-bold text-white disabled:opacity-60" onClick={submit}>{busy ? "Saving…" : "Submit review"}</button>
+        <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold" onClick={() => setOpen(false)}>{review ? "Cancel" : "Not now"}</button>
+        <button disabled={busy} className="rounded-lg bg-[#1d5a2b] px-4 py-1.5 text-sm font-bold text-white disabled:opacity-60" onClick={submit}>{busy ? "Saving…" : review ? "Save changes" : "Submit review"}</button>
+      </div>
+    </div>
+  );
+}
+
+const REPORT_REASONS = ["No-show / didn't deliver", "Wrong or misleading listing", "Rude or abusive", "Suspected fraud", "Other"];
+
+/** Anyone in a deal can report the other person to the admins. */
+function ReportUser({ item }: { item: Item }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState(REPORT_REASONS[0]);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+  if (!item.other) return null;
+  if (sent) return <p className="mt-2 text-xs font-semibold text-slate-500">Report sent to the admins. Thank you.</p>;
+  if (!open) return <button className="mt-2 block text-xs font-semibold text-slate-500 underline hover:text-red-700" onClick={() => setOpen(true)}>Report {item.other.name}</button>;
+  const submit = async () => {
+    setBusy(true); setError("");
+    try { await reportApi.create({ reported_user_id: item.other!.id, reason, description: text.trim() || undefined }); setSent(true); }
+    catch (e) { setError(e instanceof Error ? e.message : "Couldn't send the report."); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm">
+      <p className="font-semibold text-red-800">Report {item.other.name}</p>
+      <select aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5">
+        {REPORT_REASONS.map((r) => <option key={r}>{r}</option>)}
+      </select>
+      <textarea value={text} maxLength={1000} onChange={(e) => setText(e.target.value)} placeholder="What happened? (optional)" rows={2} className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-2" />
+      <FormError message={error} />
+      <div className="mt-2 flex justify-end gap-2">
+        <button className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold" onClick={() => setOpen(false)}>Cancel</button>
+        <button disabled={busy} className="rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white disabled:opacity-60" onClick={submit}>{busy ? "Sending…" : "Send report"}</button>
       </div>
     </div>
   );
@@ -143,11 +199,11 @@ function ReviewBox({ item, reviewed }: { item: Item; reviewed: boolean }) {
 
 function useActivity(side: "mine" | "incoming") {
   const { user } = useAuth();
-  const orders = useQuery({ queryKey: ["orders", user?.id], queryFn: tradeApi.myOrders, enabled: !!user });
-  const bookings = useQuery({ queryKey: ["bookings", user?.id], queryFn: tradeApi.myBookings, enabled: !!user });
+  const orders = useQuery({ queryKey: ["orders", user?.id], queryFn: tradeApi.myOrders, enabled: !!user, refetchInterval: 30_000 });
+  const bookings = useQuery({ queryKey: ["bookings", user?.id], queryFn: tradeApi.myBookings, enabled: !!user, refetchInterval: 30_000 });   // new requests show up without a reload
   const uid = user?.id;
   const reviews = useQuery({ queryKey: ["my-reviews", uid], queryFn: () => reviewApi.mine(uid!), enabled: !!user });
-  const reviewed = new Set((reviews.data ?? []).map((r) => `${r.context_type}:${r.context_id}`));
+  const reviewed = new Map((reviews.data ?? []).map((r) => [`${r.context_type}:${r.context_id}`, r] as const));
   const items: Item[] = [
     ...(orders.data ?? []).filter((o) => (side === "mine" ? o.buyer_id === uid : o.farmer_id === uid)).map((o) => orderItem(o, side === "mine")),
     ...(bookings.data ?? []).filter((b) => (side === "mine" ? b.requester_id === uid : b.provider_id === uid)).map((b) => bookingItem(b, side === "mine")),
@@ -231,7 +287,8 @@ export function ActivityList({ side }: { side: "mine" | "incoming" }) {
                 </div>
               </div>
               <PaymentBox item={item} side={side} />
-              <ReviewBox item={item} reviewed={reviewed.has(`${item.kind}:${item.id}`)} />
+              <ReviewBox item={item} review={reviewed.get(`${item.kind}:${item.id}`)} />
+              <ReportUser item={item} />
               {actions.length > 0 && (
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   {actions.map((a) => {

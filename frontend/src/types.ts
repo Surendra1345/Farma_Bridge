@@ -23,6 +23,14 @@ export type Role = "farmer" | "buyer" | "machine_owner" | "storage_owner";
 export type User = {
   id: number; name: string; phone_number: string; email: string;
   address: string; location: string; trust_score?: number | null; roles: Role[];
+  upi_id?: string | null; is_admin?: boolean;
+};
+
+export type AdminUser = { id: number; name: string; email: string; phone_number: string; location: string; is_active: boolean; is_verified: boolean; trust_score?: number | null };
+
+export type UserReport = {
+  report_id: number; reporter_id: number; reported_user_id: number; reason: string; description?: string | null;
+  status: string; action_taken?: string | null; created_at: string; reporter_name?: string | null; reported_user_name?: string | null;
 };
 
 export type AuthResponse = { access_token: string; token_type: string; user: User };
@@ -35,7 +43,7 @@ export type PaymentStatus = "Unpaid" | "Marked Paid" | "Received";
 export type PaymentAction = "paid" | "received" | "not_received" | "undo";
 export type PaymentMethod = "UPI" | "Cash" | "Bank transfer" | "Other";
 
-export type Party = { id: number; name: string; location: string; phone_number?: string | null; trust_score?: number | null };
+export type Party = { id: number; name: string; location: string; phone_number?: string | null; trust_score?: number | null; upi_id?: string | null };
 
 export type Review = {
   review_id: number; reviewer_id: number; reviewed_user_id: number; rating: number; comment?: string | null;

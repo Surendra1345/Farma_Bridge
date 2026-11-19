@@ -8,9 +8,10 @@ import { Field, useAction } from "./formKit";
 import { inputClass as input, primaryClass as primary } from "./formStyles";
 import { MyListings } from "./MyListings";
 import { ActivityList, usePendingRequestCount } from "./Activity";
+import { AdminPanel } from "./AdminPanel";
 import { Sheet } from "./Sheet";
 
-export type AccountTab = "profile" | "listings" | "purchases" | "requests";
+export type AccountTab = "profile" | "listings" | "purchases" | "requests" | "admin";
 
 export function AccountSheet({ tab: initialTab = "profile", onClose, onPost }: { tab?: AccountTab; onClose: () => void; onPost: () => void }) {
   const { user, signOut } = useAuth();
@@ -33,12 +34,14 @@ export function AccountSheet({ tab: initialTab = "profile", onClose, onPost }: {
         <button role="tab" aria-selected={tab === "requests"} className={tabClass("requests")} onClick={() => setTab("requests")}>
           Requests{pending > 0 && <span className="ml-1.5 rounded-full bg-[#ff962e] px-1.5 py-0.5 text-xs font-bold text-[#1e3a22]">{pending}</span>}
         </button>
+        {user.is_admin && <button role="tab" aria-selected={tab === "admin"} className={tabClass("admin")} onClick={() => setTab("admin")}>Admin</button>}
       </div>
       <div className="mt-5">
         {tab === "profile" && <ProfileForm onSignOut={() => { signOut(); onClose(); }} />}
         {tab === "purchases" && <ActivityList side="mine" />}
         {tab === "listings" && <MyListings onPost={() => { onClose(); onPost(); }} />}
         {tab === "requests" && <ActivityList side="incoming" />}
+        {tab === "admin" && user.is_admin && <AdminPanel />}
       </div>
     </Sheet>
   );
@@ -54,7 +57,7 @@ function ProfileForm({ onSignOut }: { onSignOut: () => void }) {
 
   const submit = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); setSaved(false); run(async () => {
     const g = (k: string) => String(f.get(k) ?? "").trim();
-    updateUser(await authApi.updateProfile({ name: g("name"), phone_number: g("phone"), address: g("address"), location: g("location") }));
+    updateUser(await authApi.updateProfile({ name: g("name"), phone_number: g("phone"), address: g("address"), location: g("location"), upi_id: g("upi") }));
     setSaved(true);
     return "saved";
   }); };
@@ -71,6 +74,8 @@ function ProfileForm({ onSignOut }: { onSignOut: () => void }) {
           <Field name="Phone number"><input name="phone" className={input} type="tel" required pattern="[0-9]{10}" title="10-digit phone number" defaultValue={user.phone_number} /></Field>
           <Field name="Address"><input name="address" className={input} required defaultValue={user.address} /></Field>
           <Field name="Village / town"><input name="location" className={input} required defaultValue={user.location} /></Field>
+          <Field name="UPI id (optional)"><input name="upi" className={input} placeholder="name@bank" maxLength={60} pattern="[A-Za-z0-9._\-]{2,}@[A-Za-z][A-Za-z0-9]+" title="Like name@okhdfcbank" defaultValue={user.upi_id ?? ""} /></Field>
+          <p className="text-xs text-slate-500 sm:col-span-2">Add your UPI id so buyers can pay you by scanning a QR code. It is shown only to the people you have a confirmed order or booking with.</p>
         </div>
         <p className="text-xs text-slate-500">Email ({user.email}) is your sign-in and can't be changed here.</p>
         <FormError message={error} />

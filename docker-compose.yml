@@ -44,7 +44,7 @@ services:
     volumes:
       - uploads:/app/static/uploads
     ports:
-      - "${BACKEND_PORT:-8200}:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8200}:8000"   # localhost only: the web app reaches the API through nginx
 
   frontend:
     build: ./frontend

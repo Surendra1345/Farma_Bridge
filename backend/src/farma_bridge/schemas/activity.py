@@ -12,6 +12,7 @@ class Party(BaseModel):
     location: str
     phone_number: str | None = None
     trust_score: float | None = None  # average review rating, if any
+    upi_id: str | None = None  # only the person being paid, and only once the deal is confirmed
 
 
 class OrderView(OrderResponse):
