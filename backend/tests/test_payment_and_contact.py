@@ -45,7 +45,7 @@ class PaymentAndContactTests(unittest.TestCase):
 
     def user(self, roles):
         type(self).n += 1
-        email = f"p{self.n}@example.com"
+        email = f"pay{self.n}@example.com"
         phone = f"94000{self.n:05d}"
         self.assertEqual(self.c.post("/users/register", json=dict(name="Pay Person", phone_number=phone, email=email, address="a", location="Guntur", roles=roles)).status_code, 201)
         t = self.c.post("/users/verify-otp", json=dict(email=email, otp=SENT[email])).json()
